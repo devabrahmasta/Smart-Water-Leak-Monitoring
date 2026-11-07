@@ -1,0 +1,6 @@
+# Normalisasi akhir baris supaya anggota Windows dan macOS/Linux tidak bentrok
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary

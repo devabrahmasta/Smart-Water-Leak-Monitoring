@@ -1,0 +1,53 @@
+# ---- Rahasia (JANGAN PERNAH di-commit) ----
+.env
+.env.*
+!.env.example
+firmware/esp32/secrets.h
+infra/mosquitto/certs/*
+!infra/mosquitto/certs/.gitkeep
+infra/mosquitto/passwd
+infra/mosquitto/acl
+*.pem
+*.key
+*.crt
+service-account*.json
+google-services.json
+GoogleService-Info.plist
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# ---- Flutter / Dart ----
+apps/mobile/.dart_tool/
+apps/mobile/build/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/android/key.properties
+*.jks
+*.keystore
+
+# ---- Firmware (PlatformIO / Arduino) ----
+firmware/esp32/.pio/
+firmware/esp32/build/
+
+# ---- Docker volume lokal ----
+infra/data/
+
+# ---- Editor & OS ----
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,16 @@
+# Salin menjadi `acl` (tidak di-commit). Nama user = device_id untuk perangkat.
+
+# Backend: baca semua data perangkat, kirim cmd ke semua perangkat
+user backend
+topic read swm/+/telemetry
+topic read swm/+/alert
+topic read swm/+/status
+topic read swm/+/ack
+topic write swm/+/cmd
+
+# Perangkat dan simulator: hanya topiknya sendiri (%u = username)
+pattern write swm/%u/telemetry
+pattern write swm/%u/alert
+pattern write swm/%u/status
+pattern write swm/%u/ack
+pattern read swm/%u/cmd
