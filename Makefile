@@ -23,6 +23,7 @@ logs:
 # Diisi saat tiap bagian sudah punya kode (R-01, R-02, R-09).
 test:
 	python packages/contracts/test_contracts.py
+	pytest services/api/tests
 
 # Diisi di R-07.
 contracts:
