@@ -78,6 +78,7 @@ class RoomCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
+                flex: 2,
                 child: Text(
                   name,
                   maxLines: 1,
@@ -85,11 +86,25 @@ class RoomCard extends StatelessWidget {
                   style: AppTextStyles.headline.copyWith(color: fg),
                 ),
               ),
-              if (isHighest && !_dark) ...[
-                const StatusChip(StatusChipType.highest),
-                const SizedBox(width: AppSpacing.sm),
-              ],
-              StatusChip(chip),
+              const SizedBox(width: AppSpacing.sm),
+              // Wrap: di layar sempit chip Tertinggi turun ke baris kedua
+              // alih-alih overflow.
+              Expanded(
+                flex: 3,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      if (isHighest && !_dark)
+                        const StatusChip(StatusChipType.highest),
+                      StatusChip(chip),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
