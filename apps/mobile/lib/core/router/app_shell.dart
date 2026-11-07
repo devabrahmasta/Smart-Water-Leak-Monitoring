@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../components/bottom_nav.dart';
+import '../../data/providers/providers.dart';
 import '../theme/app_tokens.dart';
 
 /// Kerangka 3 tab: konten tab di belakang, Bottom Nav melayang di bawah.
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -15,7 +17,7 @@ class AppShell extends StatelessWidget {
       BottomNav.height + AppSpacing.xxl + AppSpacing.xxl;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: Stack(
         children: [
@@ -29,9 +31,9 @@ class AppShell extends StatelessWidget {
               minimum: const EdgeInsets.only(bottom: AppSpacing.xxl),
               child: BottomNav(
                 currentIndex: navigationShell.currentIndex,
-                // Badge = jumlah alert OPEN, disambungkan ke data di R-11.
+                // Badge = jumlah alert OPEN (US-11).
                 badgeIndex: 2,
-                badgeCount: 0,
+                badgeCount: ref.watch(openAlertCountProvider),
                 onTap: (index) => navigationShell.goBranch(
                   index,
                   // Tap tab yang sedang aktif kembali ke akar tab itu.

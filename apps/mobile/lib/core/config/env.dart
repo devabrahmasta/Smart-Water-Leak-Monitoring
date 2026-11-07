@@ -10,6 +10,12 @@ abstract final class Env {
   /// `true` (default): data dari fixture kontrak, tanpa backend.
   static const useMock = bool.fromEnvironment('USE_MOCK', defaultValue: true);
 
+  /// Skenario mock: standard, all-normal, offline, empty, no-ack.
+  static const mockScenario = String.fromEnvironment(
+    'MOCK_SCENARIO',
+    defaultValue: 'standard',
+  );
+
   static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
   static const apiToken = String.fromEnvironment('API_TOKEN');
 
