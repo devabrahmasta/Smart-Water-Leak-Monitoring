@@ -1,0 +1,8 @@
+{
+  "msg_id": 18346,
+  "ts": "2026-11-07T18:30:00Z",
+  "rule": "QUIET_HOURS",
+  "flow_lpm": 1.5,
+  "valve": "CLOSED"
+}
+

@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smartwater.timunmania.id/schemas/ack.json",
+  "title": "AckPayload",
+  "description": "Payload acknowledgement dari perangkat ke broker setelah mengeksekusi perintah cmd",
+  "type": "object",
+  "properties": {
+    "command_id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "ID perintah yang dieksekusi"
+    },
+    "result": {
+      "type": "string",
+      "enum": ["OK", "ERROR"],
+      "description": "Hasil eksekusi perintah oleh perangkat"
+    },
+    "valve": {
+      "type": "string",
+      "enum": ["OPEN", "CLOSED"],
+      "description": "Status posisi valve aktual setelah eksekusi"
+    }
+  },
+  "required": ["command_id", "result", "valve"],
+  "additionalProperties": false
+}
+

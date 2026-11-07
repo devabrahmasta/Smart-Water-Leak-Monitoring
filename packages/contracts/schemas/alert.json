@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smartwater.timunmania.id/schemas/alert.json",
+  "title": "AlertPayload",
+  "description": "Payload alert seketika dari perangkat ke broker saat valve ditutup otomatis oleh aturan",
+  "type": "object",
+  "properties": {
+    "msg_id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Nomor urut pesan monoton per perangkat, tahan reboot"
+    },
+    "ts": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp ISO 8601 UTC dari NTP, null jika NTP belum sinkron"
+    },
+    "rule": {
+      "type": "string",
+      "enum": ["CONTINUOUS", "STABLE", "QUIET_HOURS"],
+      "description": "Aturan kebocoran perangkat yang terpicu"
+    },
+    "flow_lpm": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Laju aliran air saat kebocoran terdeteksi (Liter per menit)"
+    },
+    "valve": {
+      "type": "string",
+      "enum": ["CLOSED"],
+      "description": "Status valve setelah aturan terpicu, selalu CLOSED"
+    }
+  },
+  "required": ["msg_id", "ts", "rule", "flow_lpm", "valve"],
+  "additionalProperties": false
+}
+

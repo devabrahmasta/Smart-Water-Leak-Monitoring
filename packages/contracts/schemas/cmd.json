@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smartwater.timunmania.id/schemas/cmd.json",
+  "title": "CommandPayload",
+  "description": "Payload perintah dari backend ke perangkat untuk membuka atau menutup valve",
+  "type": "object",
+  "properties": {
+    "command_id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "ID unik perintah dari database backend"
+    },
+    "action": {
+      "type": "string",
+      "enum": ["OPEN", "CLOSE"],
+      "description": "Aksi yang diinginkan pada valve"
+    }
+  },
+  "required": ["command_id", "action"],
+  "additionalProperties": false
+}
+
