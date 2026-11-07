@@ -9,7 +9,7 @@ import '../../core/presentation/screen_body.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../data/models/models.dart';
 import '../../data/providers/providers.dart';
-import '../alerts/alert_detail_sheet.dart';
+import '../alerts/alert_actions.dart';
 import '../rooms/room_card_view.dart';
 
 /// Detail Kamar (US-06).
@@ -127,10 +127,11 @@ class RoomDetailPage extends ConsumerWidget {
                         status: alertItemStatus(d.recentAlerts[i].status),
                         title: alertTitle(d.recentAlerts[i]),
                         subtitle: alertSubtitle(d.recentAlerts[i]),
-                        onTap: () => showAlertDetailSheet(
+                        onTap: () => openAlertDetail(
                           context,
+                          ref,
                           alert: d.recentAlerts[i],
-                          onViewRoom: () {},
+                          roomRoute: GoRouterState.of(context).uri.path,
                         ),
                       ),
                     ],

@@ -41,3 +41,14 @@ Sumber visual: Figma *Smart Water UI* (https://www.figma.com/design/BRThPzyDj0I2
 Semua widget komponen Figma ada di `lib/components/`, satu file per komponen, diekspor lewat `components.dart`. Layar hanya boleh menyusun widget dari sana.
 
 Galeri komponen untuk dibandingkan dengan Figma page *Components*: jalankan build debug, lalu tekan tombol **Galeri komponen** di Beranda (rute `/galeri`, tidak ada di build release).
+
+## Data, valve, dan push (R-11, R-12)
+
+| `--dart-define` | Default | Fungsi |
+|---|---|---|
+| `USE_MOCK` | `true` | Data contoh sesuai kontrak, tanpa backend |
+| `MOCK_SCENARIO` | `standard` | `all-normal`, `offline`, `empty`, `no-ack` |
+| `API_BASE_URL`, `API_TOKEN` | kosong | Backend asli (`USE_MOCK=false`) |
+| `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_SENDER_ID`, `FIREBASE_PROJECT_ID` | kosong | Push FCM. Kosong = push mati, aplikasi tetap jalan |
+
+Nilai Firebase diambil dari Firebase Console → Project settings → aplikasi Android. Tidak perlu `google-services.json`.

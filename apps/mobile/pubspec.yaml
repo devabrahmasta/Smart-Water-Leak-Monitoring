@@ -8,8 +8,12 @@ environment:
 
 dependencies:
   dio: ^5.11.1
+  firebase_core: ^5.1.0
+  firebase_messaging: ^17.0.1
   flutter:
     sdk: flutter
+  # 23.x butuh compileSdk 37 + AGP 9.1; proyek masih AGP 9.0.1.
+  flutter_local_notifications: ^21.0.0
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^3.5.0
