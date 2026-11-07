@@ -6,6 +6,12 @@ Postgres 16 + Mosquitto 2 (TLS 8883) untuk pengembangan lokal.
 
 ## Persiapan sekali
 
+Jalankan skrip otomasi setup (Windows PowerShell):
+```powershell
+.\infra\setup-certs.ps1
+```
+
+Atau lakukan manual:
 1. **Sertifikat TLS** di `mosquitto/certs/` (tidak di-commit): `ca.crt`, `server.crt`, `server.key`. CN/SAN server harus sama dengan host yang dipakai ESP32 (lihat PRD 6.5 soal hosting).
 2. **ACL:** salin `mosquitto/acl.example` menjadi `mosquitto/acl`.
 3. **Akun:** buat `mosquitto/passwd` untuk `backend`, `1`, dan `2`:
@@ -14,6 +20,7 @@ Postgres 16 + Mosquitto 2 (TLS 8883) untuk pengembangan lokal.
    docker run --rm -it -v "$PWD/infra/mosquitto:/m" eclipse-mosquitto:2 mosquitto_passwd -c /m/passwd backend
    docker run --rm -it -v "$PWD/infra/mosquitto:/m" eclipse-mosquitto:2 mosquitto_passwd /m/passwd 1
    docker run --rm -it -v "$PWD/infra/mosquitto:/m" eclipse-mosquitto:2 mosquitto_passwd /m/passwd 2
+   docker run --rm --entrypoint sh -v "$PWD/infra/mosquitto:/m" eclipse-mosquitto:2 -c "chmod 644 /m/passwd"
    ```
 
 4. `make dev` dari root.
