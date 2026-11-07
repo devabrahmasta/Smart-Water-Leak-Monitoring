@@ -4,10 +4,20 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
 import 'app.dart';
+import 'core/push/push_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Intl.defaultLocale = 'id_ID';
   await initializeDateFormatting('id_ID');
-  runApp(const ProviderScope(child: SmartWaterApp()));
+
+  final container = ProviderContainer();
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: const SmartWaterApp(),
+    ),
+  );
+  // Disiapkan setelah UI tampil supaya pembukaan aplikasi tidak tertahan.
+  PushService(container).start();
 }

@@ -7,13 +7,16 @@ import '../../components/components.dart';
 import '../../core/config/env.dart';
 import '../../core/format/formatters.dart';
 import '../../core/presentation/labels.dart';
+import '../../core/push/push_service.dart';
 import '../../core/presentation/screen_body.dart';
 import '../../core/router/app_router.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
+import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../data/models/models.dart';
 import '../../data/providers/providers.dart';
-import '../alerts/alert_detail_sheet.dart';
+import '../alerts/alert_actions.dart';
 import '../rooms/room_card_view.dart';
 
 /// Beranda (US-01, US-02, US-03, US-18).
@@ -42,6 +45,7 @@ class HomePage extends ConsumerWidget {
           bellBadge: openCount > 0,
           onBell: () => context.go(AppRoutes.alerts),
         ),
+        const _NotificationOffBanner(),
         const SizedBox(height: AppSpacing.xxl),
         AsyncView<Summary>(
           value: summary,
@@ -103,7 +107,12 @@ class _SummaryGroup extends ConsumerWidget {
                 : latest.type == AlertType.leak
                 ? 'Valve ditutup otomatis · ${formatClock(latest.createdAt)}'
                 : '${latest.roomName} · ${formatClock(latest.createdAt)}',
-            onView: () => openAlertSheet(context, ref, latest.id),
+            onView: () => openAlertById(
+              context,
+              ref,
+              alertId: latest.id,
+              roomRoute: AppRoutes.homeRoom,
+            ),
           ),
         ],
         cardGap,
@@ -153,24 +162,55 @@ class _AttentionList extends StatelessWidget {
   }
 }
 
-/// Ambil alert terbaru lalu buka sheet detailnya.
-Future<void> openAlertSheet(BuildContext context, WidgetRef ref, int id) async {
-  final repo = ref.read(repositoryProvider);
-  try {
-    final alert = await repo.getAlert(id);
-    if (!context.mounted) return;
-    await showAlertDetailSheet(
-      context,
-      alert: alert,
-      onViewRoom: () => context.go(AppRoutes.homeRoom(alert.roomId)),
+/// "Notifikasi mati. Aktifkan di Pengaturan" bila izin ditolak (US-20).
+class _NotificationOffBanner extends ConsumerWidget {
+  const _NotificationOffBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(notificationsEnabledProvider).value ?? true;
+    final dismissed = ref.watch(notificationBannerDismissedProvider);
+    if (enabled || dismissed) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: Row(
+        children: [
+          const Icon(AppIcons.bell, size: 16, color: AppColors.inkMuted),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: GestureDetector(
+              onTap: () async {
+                await requestNotificationPermission();
+                ref.invalidate(notificationsEnabledProvider);
+              },
+              child: Text(
+                'Notifikasi mati. Aktifkan di Pengaturan',
+                style: AppTextStyles.label.copyWith(color: AppColors.inkMuted),
+              ),
+            ),
+          ),
+          Semantics(
+            button: true,
+            label: 'Tutup pengingat notifikasi',
+            excludeSemantics: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => ref
+                  .read(notificationBannerDismissedProvider.notifier)
+                  .dismiss(),
+              child: const SizedBox.square(
+                dimension: AppSizes.minTouch,
+                child: Icon(
+                  AppIcons.close,
+                  size: 16,
+                  color: AppColors.inkMuted,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
-  } catch (_) {
-    if (context.mounted) {
-      showToast(
-        context,
-        type: ToastType.error,
-        message: 'Gagal memuat detail. Coba lagi',
-      );
-    }
   }
 }

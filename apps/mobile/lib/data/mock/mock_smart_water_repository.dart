@@ -60,6 +60,7 @@ class MockSmartWaterRepository implements SmartWaterRepository {
     DateTime Function()? clock,
     this.latency = const Duration(milliseconds: 250),
     this.ackDelay = const Duration(seconds: 2),
+    this.ackTimeout = const Duration(seconds: 15),
   }) : _clock = clock ?? DateTime.now {
     _seed();
   }
@@ -69,8 +70,8 @@ class MockSmartWaterRepository implements SmartWaterRepository {
   final Duration latency;
   final Duration ackDelay;
 
-  /// Batas tunggu ACK di backend (CONTRACT.md 2.7).
-  static const ackTimeout = Duration(seconds: 15);
+  /// Batas tunggu ACK di backend sebelum FAILED (CONTRACT.md 2.7).
+  final Duration ackTimeout;
 
   final _rooms = <_MockRoom>[];
   final _alerts = <Map<String, dynamic>>[];
@@ -210,7 +211,9 @@ class MockSmartWaterRepository implements SmartWaterRepository {
   };
 
   Future<T> _delay<T>(T Function() body) async {
-    await Future<void>.delayed(latency);
+    // Tanpa timer saat latency nol, supaya tes dengan waktu palsu tidak
+    // menunggu jam yang tidak berjalan.
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
     return body();
   }
 

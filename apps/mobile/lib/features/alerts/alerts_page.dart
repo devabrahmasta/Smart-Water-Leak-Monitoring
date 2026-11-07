@@ -9,7 +9,7 @@ import '../../core/router/app_router.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../data/models/models.dart';
 import '../../data/providers/providers.dart';
-import 'alert_detail_sheet.dart';
+import 'alert_actions.dart';
 
 enum AlertFilter { all, open, resolved }
 
@@ -23,6 +23,26 @@ class AlertsPage extends ConsumerStatefulWidget {
 
 class _AlertsPageState extends ConsumerState<AlertsPage> {
   AlertFilter _filter = AlertFilter.all;
+  String? _handledDeepLink;
+
+  /// Push notifikasi membuka `/notifikasi?alert=<id>` → tampilkan sheet
+  /// detail alert itu sekali (CONTRACT.md 4.2).
+  void _handleDeepLink() {
+    final id = GoRouterState.of(context).uri.queryParameters['alert'];
+    if (id == null || id == _handledDeepLink) return;
+    _handledDeepLink = id;
+    final alertId = int.tryParse(id);
+    if (alertId == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      openAlertById(
+        context,
+        ref,
+        alertId: alertId,
+        roomRoute: AppRoutes.alertRoom,
+      );
+    });
+  }
 
   List<Alert> _apply(List<Alert> alerts) => switch (_filter) {
     AlertFilter.all => alerts,
@@ -34,6 +54,7 @@ class _AlertsPageState extends ConsumerState<AlertsPage> {
 
   @override
   Widget build(BuildContext context) {
+    _handleDeepLink();
     final alerts = ref.watch(alertsProvider);
 
     return ScreenBody(
@@ -77,11 +98,11 @@ class _AlertsPageState extends ConsumerState<AlertsPage> {
                     status: alertItemStatus(list[i].status),
                     title: alertTitle(list[i]),
                     subtitle: alertSubtitle(list[i]),
-                    onTap: () => showAlertDetailSheet(
+                    onTap: () => openAlertDetail(
                       context,
+                      ref,
                       alert: list[i],
-                      onViewRoom: () =>
-                          context.go(AppRoutes.alertRoom(list[i].roomId)),
+                      roomRoute: AppRoutes.alertRoom(list[i].roomId),
                     ),
                   ),
                 ],
