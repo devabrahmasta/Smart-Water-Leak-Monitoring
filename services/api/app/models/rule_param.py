@@ -23,3 +23,4 @@ class RuleParam(Base):
 
     def __repr__(self) -> str:
         return f"<RuleParam key='{self.key}' value='{self.value}'>"
+

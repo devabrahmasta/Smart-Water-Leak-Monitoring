@@ -91,3 +91,4 @@ class Alert(Base):
 
     def __repr__(self) -> str:
         return f"<Alert id={self.id} room={self.room_id} type='{self.type}' status='{self.status}'>"
+

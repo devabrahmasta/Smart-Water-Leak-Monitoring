@@ -49,3 +49,4 @@ class Notification(Base):
 
     def __repr__(self) -> str:
         return f"<Notification id={self.id} alert_id={self.alert_id} attempts={self.attempts}>"
+

@@ -56,3 +56,4 @@ class MonthlyUsage(Base):
 
     def __repr__(self) -> str:
         return f"<MonthlyUsage room={self.room_id} month='{self.month}' volume={self.volume_l}>"
+

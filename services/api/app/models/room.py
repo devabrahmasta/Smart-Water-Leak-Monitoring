@@ -51,3 +51,4 @@ class Room(Base):
 
     def __repr__(self) -> str:
         return f"<Room id={self.id} name='{self.name}' is_simulated={self.is_simulated}>"
+

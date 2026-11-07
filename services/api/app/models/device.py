@@ -50,3 +50,4 @@ class Device(Base):
 
     def __repr__(self) -> str:
         return f"<Device id='{self.id}' room_id={self.room_id} valve='{self.valve_state}'>"
+

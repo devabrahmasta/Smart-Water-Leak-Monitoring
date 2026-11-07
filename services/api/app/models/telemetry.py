@@ -44,3 +44,4 @@ class Telemetry(Base):
 
     def __repr__(self) -> str:
         return f"<Telemetry id={self.id} device='{self.device_id}' msg_id={self.msg_id} flow={self.flow_lpm}>"
+

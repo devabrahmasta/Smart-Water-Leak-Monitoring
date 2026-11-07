@@ -69,3 +69,4 @@ class ValveCommand(Base):
 
     def __repr__(self) -> str:
         return f"<ValveCommand id={self.id} room={self.room_id} action='{self.action}' status='{self.status}'>"
+
