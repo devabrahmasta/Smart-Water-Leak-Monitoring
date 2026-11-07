@@ -35,3 +35,9 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000 --dart-define=API_TO
 `google-services.json` dari Firebase taruh di `android/app/`, sudah di `.gitignore`.
 
 Sumber visual: Figma *Smart Water UI* (https://www.figma.com/design/BRThPzyDj0I2w2hIrjcnDX).
+
+## Komponen (R-10)
+
+Semua widget komponen Figma ada di `lib/components/`, satu file per komponen, diekspor lewat `components.dart`. Layar hanya boleh menyusun widget dari sana.
+
+Galeri komponen untuk dibandingkan dengan Figma page *Components*: jalankan build debug, lalu tekan tombol **Galeri komponen** di Beranda (rute `/galeri`, tidak ada di build release).

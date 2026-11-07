@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/alerts/alerts_page.dart';
+import '../../features/gallery/component_gallery_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/rooms/rooms_page.dart';
 import 'app_shell.dart';
@@ -11,6 +13,9 @@ abstract final class AppRoutes {
   static const home = '/beranda';
   static const rooms = '/kamar';
   static const alerts = '/notifikasi';
+
+  /// Galeri komponen R-10, hanya di build debug.
+  static const gallery = '/galeri';
 }
 
 GoRouter createRouter({String initialLocation = AppRoutes.home}) => GoRouter(
@@ -45,6 +50,11 @@ GoRouter createRouter({String initialLocation = AppRoutes.home}) => GoRouter(
         ),
       ],
     ),
+    if (kDebugMode)
+      GoRoute(
+        path: AppRoutes.gallery,
+        builder: (context, state) => const ComponentGalleryPage(),
+      ),
   ],
 );
 
