@@ -22,7 +22,7 @@ logs:
 
 # Diisi saat tiap bagian sudah punya kode (R-01, R-02, R-09).
 test:
-	@echo "TODO: pytest services/api, pytest packages/contracts, flutter test apps/mobile"
+	python packages/contracts/test_contracts.py
 
 # Diisi di R-07.
 contracts:

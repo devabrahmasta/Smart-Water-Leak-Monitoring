@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smartwater.timunmania.id/schemas/telemetry.json",
+  "title": "TelemetryPayload",
+  "description": "Payload telemetri periodik dari perangkat ke broker MQTT setiap 10 detik",
+  "type": "object",
+  "properties": {
+    "msg_id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Nomor urut pesan monoton per perangkat, tahan reboot"
+    },
+    "ts": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp ISO 8601 UTC dari NTP, null jika NTP belum sinkron"
+    },
+    "flow_lpm": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Laju aliran air saat ini dalam Liter per menit"
+    },
+    "volume_l_delta": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Volume air yang mengalir dalam interval telemetri terakhir (Liter)"
+    },
+    "valve": {
+      "type": "string",
+      "enum": ["OPEN", "CLOSED"],
+      "description": "Status posisi valve saat ini"
+    }
+  },
+  "required": ["msg_id", "ts", "flow_lpm", "volume_l_delta", "valve"],
+  "additionalProperties": false
+}
