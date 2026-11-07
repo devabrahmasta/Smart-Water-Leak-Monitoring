@@ -86,3 +86,4 @@ docker run --rm -v "${mPath}:/m" eclipse-mosquitto:2 mosquitto_passwd -b /m/pass
 docker run --rm --entrypoint sh -v "${mPath}:/m" eclipse-mosquitto:2 -c "chmod 644 /m/passwd"
 
 Write-Host "==> Setup selesai! Jalankan 'docker compose -f infra/docker-compose.yml --env-file .env up -d' untuk memulai."
+

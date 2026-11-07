@@ -34,3 +34,4 @@
   "required": ["msg_id", "ts", "flow_lpm", "volume_l_delta", "valve"],
   "additionalProperties": false
 }
+

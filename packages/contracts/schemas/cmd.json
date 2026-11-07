@@ -19,3 +19,4 @@
   "required": ["command_id", "action"],
   "additionalProperties": false
 }
+

@@ -24,3 +24,4 @@
   "required": ["command_id", "result", "valve"],
   "additionalProperties": false
 }
+

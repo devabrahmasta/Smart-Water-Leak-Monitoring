@@ -34,3 +34,4 @@
   "required": ["msg_id", "ts", "rule", "flow_lpm", "valve"],
   "additionalProperties": false
 }
+
