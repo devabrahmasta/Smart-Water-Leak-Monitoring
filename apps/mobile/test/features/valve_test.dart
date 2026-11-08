@@ -37,24 +37,24 @@ void main() {
     // Batal tidak mengirim apa pun.
     await tester.tap(_switchOf('Kamar 1'));
     await tester.pumpAndSettle();
-    expect(find.text('Tutup valve Kamar 1?'), findsOneWidget);
+    expect(find.text('Matikan air Kamar 1?'), findsOneWidget);
     await tester.tap(find.text('Batal'));
     await tester.pumpAndSettle();
     expect(await repo.getRoomCommands(1), hasLength(2));
 
     await tester.tap(_switchOf('Kamar 1'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Tutup valve'));
+    await tester.tap(find.text('Matikan air'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 5));
-    expect(find.text('Menunggu perangkat'), findsOneWidget);
+    expect(find.text('Menunggu alat'), findsOneWidget);
     expect(
       tester.widget<ValveSwitch>(_switchOf('Kamar 1')).state,
       ValveSwitchState.pending,
     );
 
     await _settleCommand(tester);
-    expect(find.text('Valve Kamar 1 tertutup'), findsOneWidget);
+    expect(find.text('Air Kamar 1 dimatikan'), findsOneWidget);
     await tester.pumpAndSettle();
     final cmds = await repo.getRoomCommands(1);
     expect(cmds.first.action, CommandAction.close);
@@ -77,10 +77,10 @@ void main() {
 
     await tester.tap(_switchOf('Kamar 1'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Tutup valve'));
+    await tester.tap(find.text('Matikan air'));
     await _settleCommand(tester);
 
-    expect(find.text('Perangkat tidak merespons. Coba lagi'), findsOneWidget);
+    expect(find.text('Alat tidak merespons. Coba lagi'), findsOneWidget);
     await tester.pumpAndSettle();
     expect(
       tester.widget<ValveSwitch>(_switchOf('Kamar 1')).state,
@@ -98,16 +98,16 @@ void main() {
 
       await tester.tap(find.text('Kebocoran di Kamar 2'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Buka valve'));
+      await tester.tap(find.text('Nyalakan air'));
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('Buka hanya kalau penyebabnya sudah dicek'),
+        find.textContaining('Nyalakan hanya kalau keran dan pipa sudah dicek'),
         findsOneWidget,
       );
-      await tester.tap(find.text('Buka valve').last);
+      await tester.tap(find.text('Nyalakan air').last);
       await _settleCommand(tester);
 
-      expect(find.text('Valve Kamar 2 terbuka'), findsOneWidget);
+      expect(find.text('Air Kamar 2 menyala'), findsOneWidget);
       final leak = (await repo.getAlerts()).items.firstWhere((a) => a.id == 31);
       expect(leak.status, AlertStatus.resolved);
       await tester.pump(const Duration(seconds: 4));

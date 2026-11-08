@@ -21,13 +21,13 @@ Future<void> requestValveChange(
   final confirmed = await showConfirmSheet(
     context,
     action: open ? ConfirmSheetAction.open : ConfirmSheetAction.close,
-    title: '${open ? 'Buka' : 'Tutup'} valve $roomName?',
+    title: '${open ? 'Nyalakan' : 'Matikan'} air $roomName?',
     message: open
         ? closedByLeak
-              ? 'Valve ditutup otomatis karena kebocoran. Buka hanya kalau penyebabnya sudah dicek.'
-              : 'Air di $roomName akan mengalir lagi. Buka hanya kalau penyebabnya sudah dicek.'
-        : 'Air di $roomName berhenti mengalir sampai valve dibuka lagi.',
-    confirmLabel: open ? 'Buka valve' : 'Tutup valve',
+              ? 'Air dihentikan otomatis karena terdeteksi bocor. Nyalakan hanya kalau keran dan pipa sudah dicek. Kebocoran akan ditandai selesai.'
+              : 'Air di $roomName akan mengalir lagi.'
+        : 'Air di $roomName berhenti mengalir sampai dinyalakan lagi.',
+    confirmLabel: open ? 'Nyalakan air' : 'Matikan air',
   );
   // Batal tidak mengirim apa pun.
   if (!confirmed || !context.mounted) return;
@@ -43,21 +43,21 @@ Future<void> requestValveChange(
       showToast(
         context,
         type: ToastType.success,
-        message: 'Valve $roomName ${open ? 'terbuka' : 'tertutup'}',
+        message: 'Air $roomName ${open ? 'menyala' : 'dimatikan'}',
       );
     case ValveTimedOut():
       refreshAll(ref);
       showToast(
         context,
         type: ToastType.error,
-        message: 'Perangkat tidak merespons. Coba lagi',
+        message: 'Alat tidak merespons. Coba lagi',
       );
     case ValveRejected(:final error):
       showToast(
         context,
         type: ToastType.error,
         message: switch (error.code) {
-          ApiErrorCode.deviceOffline => 'Perangkat $roomName sedang offline',
+          ApiErrorCode.deviceOffline => 'Alat di $roomName sedang offline',
           ApiErrorCode.commandInProgress =>
             'Masih menunggu perintah sebelumnya',
           ApiErrorCode.network => 'Gagal terhubung ke server',

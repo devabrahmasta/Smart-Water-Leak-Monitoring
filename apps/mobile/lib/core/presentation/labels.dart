@@ -27,7 +27,7 @@ String ruleLabel(Alert a) {
       'Aliran stabil${minutes != null ? ' $minutes menit' : ''}',
     AlertRule.quietHours => 'Aliran jam sepi',
     AlertRule.dailyRatio => 'Pemakaian di atas rata rata',
-    AlertRule.manualButton => 'Tombol fisik',
+    AlertRule.manualButton => 'Tombol di alat',
   };
 }
 
@@ -40,7 +40,7 @@ String alertTitle(Alert a) => switch (a.type) {
   AlertType.leak => 'Kebocoran di ${a.roomName}',
   AlertType.anomaly => 'Pemakaian tidak wajar',
   AlertType.activity =>
-    'Valve ${a.roomName} ${a.detail['valve'] == 'CLOSED' ? 'ditutup' : 'dibuka'}',
+    'Air ${a.roomName} ${a.detail['valve'] == 'CLOSED' ? 'dimatikan' : 'dinyalakan'}',
 };
 
 String alertSubtitle(Alert a, {DateTime? now}) {
@@ -48,7 +48,7 @@ String alertSubtitle(Alert a, {DateTime? now}) {
   return switch (a.type) {
     AlertType.leak => '${ruleLabel(a)} · $when',
     AlertType.anomaly => [a.roomName, _ratio(a), when].nonNulls.join(' · '),
-    AlertType.activity => 'Tombol fisik · $when',
+    AlertType.activity => 'Tombol di alat · $when',
   };
 }
 
@@ -83,14 +83,14 @@ RoomCardStatus roomCardStatus(RoomStatus s) => switch (s) {
       );
     case RoomStatus.leak:
       return (
-        title: 'Valve tertutup otomatis',
-        subtitle: 'Periksa sebelum membuka',
+        title: 'Air dihentikan otomatis',
+        subtitle: 'Cek keran dan pipa dulu',
       );
     case RoomStatus.closed:
-      return (title: 'Valve tertutup', subtitle: _dataAge(r, now));
+      return (title: 'Air dimatikan', subtitle: _dataAge(r, now));
     case RoomStatus.normal:
       return (
-        title: r.valve == ValveState.open ? 'Valve terbuka' : 'Valve tertutup',
+        title: r.valve == ValveState.open ? 'Air menyala' : 'Air dimatikan',
         subtitle: _dataAge(r, now),
       );
   }
@@ -99,6 +99,65 @@ RoomCardStatus roomCardStatus(RoomStatus s) => switch (s) {
 String _dataAge(Room r, DateTime? now) => r.lastSeenAt == null
     ? 'Belum ada data'
     : 'Data ${formatAgo(r.lastSeenAt!, now: now)}';
+
+/// Kalimat ringkas di Room Card supaya pemilik kos langsung paham keadaan
+/// kamar tanpa membaca angka.
+String roomSummary(Room r, {DateTime? now}) {
+  final today = r.todayL == null
+      ? null
+      : 'Hari ini terpakai ${formatLiters(r.todayL!.round())}.';
+  switch (r.status) {
+    case RoomStatus.leak:
+      return 'Air mengalir terus tanpa berhenti, kemungkinan ada keran atau '
+          'pipa bocor. Air sudah dihentikan otomatis. Belum ditangani.';
+    case RoomStatus.offline:
+      return r.lastSeenAt == null
+          ? 'Alat di kamar ini belum pernah mengirim data. Cek listrik dan WiFi kamar.'
+          : 'Alat di kamar ini tidak mengirim data sejak '
+                '${formatWhen(r.lastSeenAt!, now: now)}. Cek listrik dan WiFi kamar.';
+    case RoomStatus.closed:
+      return ['Air di kamar ini sedang dimatikan.', ?today].join(' ');
+    case RoomStatus.normal:
+      final flowing = (r.flowLpm ?? 0) > 0;
+      return [
+        flowing ? 'Air sedang dipakai.' : 'Tidak ada air yang mengalir.',
+        ?today,
+      ].join(' ');
+  }
+}
+
+/// Penjelasan kebocoran di Detail Kamar (aturan CONTRACT.md 2.9) dalam
+/// bahasa sehari-hari.
+({String why, List<String> steps}) leakExplanation(Alert a) {
+  final minutes = a.detail['duration_min'];
+  final flow = a.detail['flow_lpm'];
+  final flowText = flow is num ? ' sekitar ${formatFlow(flow)}' : '';
+  final why = switch (a.rule) {
+    AlertRule.continuous =>
+      'Air mengalir$flowText tanpa berhenti selama '
+          '${minutes ?? 45} menit. Pemakaian biasa (mandi, mencuci) tidak '
+          'pernah selama itu tanpa jeda.',
+    AlertRule.stable =>
+      'Air mengalir$flowText dengan deras yang sama terus menerus selama '
+          '${minutes ?? 5} menit. Pola rata seperti ini biasanya keran yang '
+          'lupa ditutup atau pipa bocor.',
+    AlertRule.quietHours =>
+      'Ada air mengalir$flowText selama ${minutes ?? 5} menit antara jam '
+          '01.00 dan 04.00, saat penghuni biasanya tidur.',
+    AlertRule.manualButton => 'Air dihentikan lewat tombol di alat kamar.',
+    AlertRule.dailyRatio => 'Pemakaian hari ini jauh di atas biasanya.',
+  };
+  return (
+    why:
+        '$why Supaya air tidak terbuang, alat menghentikan air secara otomatis.',
+    steps: const [
+      'Cek keran kamar mandi, wastafel, dan kloset. Pastikan semua tertutup.',
+      'Lihat pipa dan lantai, apakah ada rembesan atau genangan.',
+      'Kalau bocornya dari pipa, panggil tukang sebelum air dinyalakan lagi.',
+      'Setelah aman, nyalakan air lewat tombol di bawah. Kebocoran otomatis ditandai selesai.',
+    ],
+  );
+}
 
 ValveSwitchState valveSwitchState(Room r) {
   if (r.status == RoomStatus.offline) return ValveSwitchState.disabled;
@@ -131,7 +190,7 @@ CommandResult commandResult(CommandStatus s) => switch (s) {
 };
 
 String commandActionLabel(CommandAction a) =>
-    a == CommandAction.open ? 'Buka valve' : 'Tutup valve';
+    a == CommandAction.open ? 'Nyalakan air' : 'Matikan air';
 
 /// Sumbu x grafik: `2026-11-07` → `7`, `2026-10` → `Okt`.
 String usageAxisLabel(UsagePoint p, UsagePeriod period) {

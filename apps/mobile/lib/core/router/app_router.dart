@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/alerts/alerts_page.dart';
+import '../../features/demo/demo_page.dart';
 import '../../features/gallery/component_gallery_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/room_detail/room_detail_page.dart';
@@ -15,6 +16,7 @@ import 'app_shell.dart';
 abstract final class AppRoutes {
   static const home = '/beranda';
   static const usage = '/beranda/grafik';
+  static const demo = '/beranda/demo';
   static const rooms = '/kamar';
   static const alerts = '/notifikasi';
 
@@ -49,6 +51,10 @@ GoRouter createRouter({String initialLocation = AppRoutes.home}) => GoRouter(
                 GoRoute(
                   path: 'grafik',
                   builder: (context, state) => const UsagePage(),
+                ),
+                GoRoute(
+                  path: 'demo',
+                  builder: (context, state) => const DemoPage(),
                 ),
                 _roomRoute('kamar/:id', AppRoutes.home),
               ],

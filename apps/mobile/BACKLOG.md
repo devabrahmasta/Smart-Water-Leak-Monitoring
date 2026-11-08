@@ -1,32 +1,26 @@
 # Backlog mobile (setelah Presentasi Progres 3)
 
-Ditunda supaya presentasi tetap mengikuti kontrak yang sekarang. Dikerjakan setelah presentasi, sebagian butuh perubahan backend dan kontrak.
+Sebagian revisi sudah dikerjakan untuk demo (lihat bawah). Sisanya butuh perubahan backend atau kontrak, jadi ditunda.
 
-## Disetujui, menunggu backend
+## Disetujui, menunggu backend + kontrak
 
-- [ ] **Buka valve ≠ kebocoran selesai.** Alert LEAK tetap Aktif sampai pemilik menekan "Tandai sudah diperbaiki" (`POST /v1/alerts/{id}/resolve`, sudah ada di backend tapi belum tercatat di kontrak). Backend perlu menghapus resolve otomatis saat OPEN dan tombol fisik (`services/api/app/mqtt/handlers.py`). Ubah CONTRACT.md + PRD US-08, US-10.
-- [ ] **Push membuka Detail Kamar yang bocor**, bukan sheet detail alert. Ubah CONTRACT.md 4.2.
+- [ ] **Buka valve ≠ kebocoran selesai.** Alert LEAK tetap Aktif sampai pemilik menekan "Tandai sudah diperbaiki" (`POST /v1/alerts/{id}/resolve`, sudah ada di backend tapi belum tercatat di kontrak). Backend perlu menghapus resolve otomatis saat OPEN dan tombol fisik (`services/api/app/mqtt/handlers.py`). Ubah CONTRACT.md + PRD US-08, US-10. Setelah itu: status "Sudah ditangani" dan tombol "Tandai sudah diperbaiki" di Leak Guide Card.
+- [ ] **CONTRACT.md 4 butir 2 perlu disesuaikan.** Aplikasi sudah membuka Detail Kamar dari `room_id` saat notifikasi diketuk, sedangkan kontrak masih menulis sheet detail alert. Payload dan backend tidak berubah.
+- [ ] Halaman Pengaturan: aturan deteksi default (hanya baca). Saat ini penjelasan aturan ada di Leak Guide Card.
+- [ ] Figma: sesuaikan Room Card bocor, Summary Card merah, gradien merah, Leak Guide Card, Mode demo (DESIGN.md sudah diperbarui).
 
-## Usulan revisi tampilan
+## Sudah dikerjakan (branch `mobile/progres3-demo-polish`, kontrak tidak berubah)
 
-- [ ] Rata-rata **mingguan** (rata-rata harian × 7) di Detail Kamar dan Detail Grafik. Beda dari PRD US-06.
-- [ ] Kebocoran terasa genting: gradien + Summary Card merah selama ada LEAK aktif (biru lagi setelah semua selesai), gradien merah di Detail Kamar yang bocor, Room Card bocor berlatar `danger-soft`. Perlu update DESIGN.md + Figma.
-- [ ] Kalimat ringkasan untuk orang awam di Room Card + status "Belum ditangani / Sudah ditangani".
-- [ ] Detail Kamar yang bocor: "Kenapa terdeteksi bocor" + "Yang sebaiknya dilakukan" + tombol Buka valve dan Tandai sudah diperbaiki.
-- [ ] Halaman Pengaturan (ikon ⚙ di Beranda): aturan deteksi default (hanya baca) + Mode demo (Normal, Bocor, Offline, Tanpa ACK) dengan notifikasi lokal.
-- [ ] Perbaikan bahasa (UX writing) di semua layar. Putuskan istilah "valve" vs "keran utama".
-
-## Perbaikan kecil yang sudah dikerjakan (ada di git stash)
-
-`git stash list` → "mobile/polish: splash+status bar, toast fix, ...". Pasang dengan `git stash pop`.
-
-- Garis bawah kuning ganda di toast (toast tanpa `Material`)
-- Layar pembuka dan status bar mengikuti tema
-- Sheet bisa di-scroll saat teks diperbesar
-- Alert di Detail Kamar tanpa tombol "Lihat kamar"
-- Tes ukuran teks 1,3× dan 1,6×
+- [x] Kebocoran terasa genting: gradien + Summary Card merah selama ada LEAK, Room Card bocor `danger-soft`, gradien merah di Detail Kamar yang bocor
+- [x] Kalimat awam di Room Card ("… Belum ditangani.")
+- [x] Detail Kamar bocor: "Kenapa terdeteksi bocor" + "Yang sebaiknya dilakukan" + tombol nyalakan air
+- [x] Rata-rata mingguan (harian × 7) di Detail Kamar dan Detail Grafik
+- [x] Mode demo (ikon tabung di Beranda): keadaan Normal, Bocor, Offline, Tanpa ACK + notifikasi bocor lokal
+- [x] UX writing: "valve" → "air" di teks yang dibaca pemilik (Nyalakan/Matikan air, Air dihentikan otomatis, Alat tidak merespons)
+- [x] `start-dev.ps1 -Accel`
+- [x] Notifikasi diketuk membuka Detail Kamar
 
 ## Lainnya
 
-- [ ] `start-dev.ps1` dukung `-Accel` (simulator `--accel`, kebocoran ±30 detik).
 - [ ] README backend: perintah seed yang benar `python -m app.seed`.
+- [ ] `.env.example`: `FCM_SERVICE_ACCOUNT_PATH` sebaiknya path absolut. Path relatif dibaca dari folder kerja worker (`services/api`), jadi file tidak ketemu dan FCM diam-diam masuk mode dry-run.

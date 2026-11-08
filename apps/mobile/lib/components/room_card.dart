@@ -16,7 +16,7 @@ enum RoomCardStatus { normal, leak, closed, offline }
 ///
 /// Aturan status (DESIGN.md 6):
 /// - normal: kartu `surface`, chip Normal.
-/// - leak: kartu `surface`, chip Bocor, valve otomatis off.
+/// - leak: kartu `danger-soft`, chip Bocor `danger`, valve otomatis off.
 /// - closed: kartu `ink` (satu-satunya kartu gelap), teks `on-dark`.
 /// - offline: angka diganti "Tidak ada data", saklar disabled.
 ///
@@ -32,6 +32,7 @@ class RoomCard extends StatelessWidget {
     required this.valveTitle,
     required this.valveSubtitle,
     required this.switchState,
+    this.summary,
     this.isHighest = false,
     this.onValveChanged,
     this.onTap,
@@ -44,6 +45,9 @@ class RoomCard extends StatelessWidget {
   final double? todayLiters;
   final double? flowLpm;
 
+  /// Kalimat ringkas untuk orang awam di bawah nama kamar.
+  final String? summary;
+
   final String valveTitle;
   final String valveSubtitle;
   final ValveSwitchState switchState;
@@ -52,6 +56,7 @@ class RoomCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   bool get _dark => status == RoomCardStatus.closed;
+  bool get _leak => status == RoomCardStatus.leak;
 
   @override
   Widget build(BuildContext context) {
@@ -63,13 +68,17 @@ class RoomCard extends StatelessWidget {
 
     final chip = switch (status) {
       RoomCardStatus.normal => StatusChipType.normal,
-      RoomCardStatus.leak => StatusChipType.leak,
+      RoomCardStatus.leak => StatusChipType.leakOnSoft,
       RoomCardStatus.closed => StatusChipType.closedOnDark,
       RoomCardStatus.offline => StatusChipType.offline,
     };
 
     return CardSurface(
-      color: _dark ? AppColors.ink : AppColors.surface,
+      color: _dark
+          ? AppColors.ink
+          : _leak
+          ? AppColors.dangerSoft
+          : AppColors.surface,
       onTap: onTap,
       semanticLabel: name,
       child: Column(
@@ -107,6 +116,15 @@ class RoomCard extends StatelessWidget {
               ),
             ],
           ),
+          if (summary != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              summary!,
+              style: AppTextStyles.body.copyWith(
+                color: _leak ? AppColors.dangerText : muted,
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +147,7 @@ class RoomCard extends StatelessWidget {
                       ? null
                       : formatNumber(flowLpm!),
                   unit: 'L/menit',
-                  label: 'Debit sekarang',
+                  label: 'Aliran sekarang',
                   fg: fg,
                   muted: muted,
                 ),

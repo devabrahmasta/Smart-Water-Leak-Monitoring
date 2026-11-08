@@ -6,6 +6,7 @@
 .EXAMPLE
   .\start-dev.ps1                       # skenario simulator: normal
   .\start-dev.ps1 -Scenario leak-stable # skenario lain
+  .\start-dev.ps1 -Scenario leak-continuous -Accel  # bocor dalam ±30 detik
 
   Prasyarat sekali saja: Docker Desktop menyala, .env terisi,
   infra\setup-certs.ps1 sudah dijalankan, services\api\.venv sudah dibuat,
@@ -13,7 +14,9 @@
 #>
 param(
   [ValidateSet('normal', 'leak-continuous', 'leak-stable', 'quiet-hours', 'offline', 'no-ack')]
-  [string]$Scenario = 'normal'
+  [string]$Scenario = 'normal',
+  # Percepat pemicu kebocoran jadi 3 tick (±30 detik), untuk demo.
+  [switch]$Accel
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,7 +41,8 @@ Start-Window 'SmartWater API' $api 'uvicorn app.main:app --host 0.0.0.0 --port 8
 Start-Sleep -Seconds 2
 Start-Window 'SmartWater Worker' $api 'python -m app.mqtt.worker'
 Start-Sleep -Seconds 2
-Start-Window "SmartWater Simulator ($Scenario)" $root "python -m services.simulator.main --scenario $Scenario"
+$accelArg = if ($Accel) { ' --accel' } else { '' }
+Start-Window "SmartWater Simulator ($Scenario$accelArg)" $root "python -m services.simulator.main --scenario $Scenario$accelArg"
 
 Write-Host ''
 Write-Host 'Selesai. API: http://localhost:8000/docs'

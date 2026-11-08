@@ -115,7 +115,7 @@ void main() {
         ),
       );
       expect(_boxColor(tester, find.byType(RoomCard)), AppColors.ink);
-      expect(find.text('Valve tertutup'), findsOneWidget);
+      expect(find.text('Air dimatikan'), findsOneWidget);
     });
 
     testWidgets('format angka id_ID dan chip Tertinggi', (tester) async {

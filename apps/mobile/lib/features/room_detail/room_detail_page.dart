@@ -11,6 +11,7 @@ import '../../data/models/models.dart';
 import '../../data/providers/providers.dart';
 import '../alerts/alert_actions.dart';
 import '../rooms/room_card_view.dart';
+import '../valve/valve_actions.dart';
 
 /// Detail Kamar (US-06).
 class RoomDetailPage extends ConsumerWidget {
@@ -28,8 +29,16 @@ class RoomDetailPage extends ConsumerWidget {
     final usage = ref.watch(usageProvider(usageQuery));
     final commands = ref.watch(roomCommandsProvider(roomId));
     final name = detail.value?.room.name ?? 'Kamar';
+    final leak = detail.value?.room.status == RoomStatus.leak;
 
     return ScreenBody(
+      // Kamar yang bocor: gradien merah seperti Beranda saat ada kebocoran.
+      background: leak
+          ? Container(
+              height: AppGradients.homeHeaderHeight,
+              decoration: BoxDecoration(gradient: AppGradients.leakHeader),
+            )
+          : null,
       onRefresh: () async {
         ref
           ..invalidate(usageProvider(usageQuery))
@@ -49,6 +58,10 @@ class RoomDetailPage extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               RoomCardView(room: d.room),
+              if (d.room.status == RoomStatus.leak) ...[
+                cardGap,
+                _LeakGuide(detail: d),
+              ],
               cardGap,
               Row(
                 children: [
@@ -63,10 +76,11 @@ class RoomDetailPage extends ConsumerWidget {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: MetricTile(
-                      label: 'Rata rata harian',
+                      label: 'Rata rata mingguan',
+                      // Rata rata harian × 7 (kontrak hanya punya harian).
                       value: d.avgDailyL == null
                           ? null
-                          : formatNumber(d.avgDailyL!.round()),
+                          : formatNumber((d.avgDailyL! * 7).round()),
                     ),
                   ),
                 ],
@@ -139,6 +153,47 @@ class RoomDetailPage extends ConsumerWidget {
                   ],
                 ),
       ],
+    );
+  }
+}
+
+class _LeakGuide extends ConsumerWidget {
+  const _LeakGuide({required this.detail});
+
+  final RoomDetail detail;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final room = detail.room;
+    final alert = detail.recentAlerts
+        .where((a) => a.type == AlertType.leak && a.status == AlertStatus.open)
+        .firstOrNull;
+    final text = alert == null
+        ? (
+            why:
+                'Alat mendeteksi air mengalir tidak wajar, jadi air '
+                'dihentikan otomatis supaya tidak terbuang.',
+            steps: const [
+              'Cek keran kamar mandi, wastafel, dan kloset.',
+              'Lihat pipa dan lantai, apakah ada rembesan.',
+              'Setelah aman, nyalakan air lewat tombol di bawah.',
+            ],
+          )
+        : leakExplanation(alert);
+    final canOpen = valveSwitchState(room) == ValveSwitchState.off;
+    return LeakGuideCard(
+      why: text.why,
+      steps: text.steps,
+      onOpenValve: canOpen
+          ? () => requestValveChange(
+              context,
+              ref,
+              roomId: room.id,
+              roomName: room.name,
+              open: true,
+              closedByLeak: true,
+            )
+          : null,
     );
   }
 }

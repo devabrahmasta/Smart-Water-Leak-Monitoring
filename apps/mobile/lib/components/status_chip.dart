@@ -8,6 +8,9 @@ import '../core/theme/app_tokens.dart';
 enum StatusChipType {
   normal,
   leak,
+
+  /// Bocor di atas kartu `danger-soft` (chip `danger` supaya tetap terlihat).
+  leakOnSoft,
   closed,
 
   /// Valve tertutup di atas kartu gelap (chip terang).
@@ -38,17 +41,23 @@ class StatusChip extends StatelessWidget {
         AppIcons.alert,
         'Bocor',
       ),
+      StatusChipType.leakOnSoft => (
+        AppColors.danger,
+        AppColors.onPrimary,
+        AppIcons.alert,
+        'Bocor',
+      ),
       StatusChipType.closed => (
         AppColors.ink,
         AppColors.onDark,
         AppIcons.lock,
-        'Valve tertutup',
+        'Air dimatikan',
       ),
       StatusChipType.closedOnDark => (
         AppColors.bg,
         AppColors.ink,
         AppIcons.lock,
-        'Valve tertutup',
+        'Air dimatikan',
       ),
       StatusChipType.offline => (
         AppColors.surfaceStrong,
