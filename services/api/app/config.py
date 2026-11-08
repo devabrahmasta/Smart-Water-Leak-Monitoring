@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     API_OWNER_TOKEN: str = "dev_owner_token_smartwater_2026"
     API_PORT: int = 8000
     TZ_DISPLAY: str = "Asia/Jakarta"
+    ENABLE_SCHEDULER: bool = True
 
     # FCM
     FCM_PROJECT_ID: str = "smartwater-demo"

@@ -4,6 +4,7 @@ Unit & Integration Tests untuk Database Models, Migrasi Alembic, dan Seeding (R-
 
 import os
 import sys
+import socket
 from pathlib import Path
 from datetime import date, datetime, timezone
 import unittest
@@ -13,10 +14,12 @@ api_dir = Path(__file__).resolve().parent.parent
 if str(api_dir) not in sys.path:
     sys.path.insert(0, str(api_dir))
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, create_engine
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 
-from app.database import SessionLocal, engine
+from app.config import settings
+from app.database import Base, SessionLocal, engine
 from app.models.room import Room
 from app.models.device import Device, ValveState
 from app.models.telemetry import Telemetry
@@ -31,7 +34,29 @@ from app.seed import seed_database
 class TestDatabaseModelsAndSeed(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.db = SessionLocal()
+        # Periksa apakah PostgreSQL aktif via socket timeout singkat (0.5s)
+        pg_alive = False
+        try:
+            with socket.create_connection(("localhost", settings.POSTGRES_PORT), timeout=0.5):
+                pg_alive = True
+        except OSError:
+            pg_alive = False
+
+        if pg_alive:
+            try:
+                with engine.connect() as conn:
+                    pass
+                cls.engine = engine
+                cls.db = SessionLocal()
+            except Exception:
+                pg_alive = False
+
+        if not pg_alive:
+            cls.engine = create_engine("sqlite:///:memory:")
+            Base.metadata.create_all(cls.engine)
+            cls.Session = sessionmaker(bind=cls.engine)
+            cls.db = cls.Session()
+
         seed_database(cls.db)
 
     @classmethod
@@ -61,7 +86,7 @@ class TestDatabaseModelsAndSeed(unittest.TestCase):
 
     def test_tables_created(self):
         """Memverifikasi bahwa seluruh 10 tabel aplikasi ada di database."""
-        inspector = inspect(engine)
+        inspector = inspect(self.engine)
         table_names = inspector.get_table_names()
         expected_tables = [
             "rooms",

@@ -2,17 +2,39 @@
 FastAPI Main Application untuk Smart Water Leak Monitoring System.
 """
 
+from contextlib import asynccontextmanager
+import logging
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError, HTTPException
 
+from app.config import settings
+from app.jobs.scheduler import start_scheduler, stop_scheduler
 from app.api.v1.commands import router as commands_router
+
+logger = logging.getLogger("main")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager untuk inisialisasi background scheduler."""
+    if settings.ENABLE_SCHEDULER:
+        logger.info("Memulai APScheduler via FastAPI lifespan...")
+        start_scheduler()
+    else:
+        logger.info("APScheduler dinonaktifkan via ENABLE_SCHEDULER=False.")
+    yield
+    if settings.ENABLE_SCHEDULER:
+        logger.info("Menghentikan APScheduler via FastAPI lifespan...")
+        stop_scheduler()
+
 
 app = FastAPI(
     title="Smart Water Leak Monitoring API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 
