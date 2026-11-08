@@ -7,3 +7,4 @@ __all__ = [
     "format_alert_payload",
     "dispatch_alert_notification",
 ]
+

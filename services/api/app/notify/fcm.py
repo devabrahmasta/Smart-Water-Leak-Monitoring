@@ -151,3 +151,4 @@ class FCMClient:
                 error_code="NETWORK_ERROR",
                 error_message=str(e),
             )
+

@@ -165,3 +165,4 @@ def dispatch_alert_notification(
         logger.error(f"Gagal mencatat log notifikasi ke DB: {e}")
 
     return notif
+
