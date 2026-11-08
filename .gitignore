@@ -44,6 +44,10 @@ firmware/esp32/build/
 # ---- Docker volume lokal ----
 infra/data/
 
+# ---- Simulator state ----
+.simulator_state.json
+services/simulator/.simulator_state.json
+
 # ---- Editor & OS ----
 .vscode/*
 !.vscode/extensions.json
