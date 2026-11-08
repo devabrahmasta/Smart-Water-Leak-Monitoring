@@ -139,6 +139,23 @@ def handle_alert(db: Session, device_id: str, payload: Dict[str, Any]) -> Ingest
         logger.warning(err)
         return IngestResult(success=False, error=err)
 
+    # Pesan QoS 1 bisa terkirim ulang: msg_id yang sama tidak boleh jadi alert baru.
+    msg_id = int(payload["msg_id"])
+    recent_leaks = (
+        db.query(Alert)
+        .filter(Alert.room_id == device.room_id, Alert.type == AlertType.LEAK)
+        .order_by(Alert.id.desc())
+        .limit(20)
+        .all()
+    )
+    if any((alert.detail or {}).get("msg_id") == msg_id for alert in recent_leaks):
+        logger.info(f"Duplicate alert ignored: device={device_id}, msg_id={msg_id}")
+        return IngestResult(
+            success=True,
+            is_duplicate=True,
+            message=f"Pesan duplikat diabaikan: {msg_id}",
+        )
+
     now_utc = datetime.now(timezone.utc)
     device_ts = _parse_timestamp(payload.get("ts"), now_utc)
     rule_enum = AlertRule(payload["rule"])

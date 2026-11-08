@@ -1,5 +1,7 @@
 {
   "continuous_sec": 2700,
   "stable_sec": 300,
-  "quiet_sec": 300
+  "quiet_sec": 300,
+  "quiet_start": "01:00",
+  "quiet_end": "04:00"
 }

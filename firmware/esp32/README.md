@@ -40,4 +40,4 @@ Library: PubSubClient, WiFiClientSecure, ArduinoJson, Preferences (NVS), NTP.
   - LED Merah (Bocor/Tutup): `GPIO 23`
   - LED Hijau (Normal/Buka): `GPIO 33`
   - LED Biru (Status Koneksi WiFi/MQTT): `GPIO 22`
-- **Jam Sepi**: 01.00 s.d. 04.00 WIB (flow > 1.0 L/menit selama >= 5 menit).
+- **Jam Sepi**: bawaan 01.00 s.d. 04.00 WIB (flow > 1.0 L/menit selama >= 5 menit). Rentang dan durasi semua aturan bisa diubah per kamar dari aplikasi.

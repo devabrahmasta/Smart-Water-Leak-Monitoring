@@ -564,4 +564,31 @@ class MockSmartWaterRepository implements SmartWaterRepository {
 
   @override
   Future<void> registerPushToken(String token) => _delay(() {});
+
+  final _rules = <int, RoomRules>{};
+
+  /// Skenario terakhir yang diminta Mode demo (dibaca tes).
+  DemoScenarioKind? lastDemoScenario;
+
+  @override
+  Future<RoomRules> getRoomRules(int roomId) => _delay(
+    () =>
+        _rules[roomId] ??
+        RoomRules(
+          roomId: roomId,
+          continuousSec: 2700,
+          stableSec: 300,
+          quietSec: 300,
+          quietStart: '01:00',
+          quietEnd: '04:00',
+        ),
+  );
+
+  @override
+  Future<RoomRules> updateRoomRules(RoomRules rules) =>
+      _delay(() => _rules[rules.roomId] = rules);
+
+  @override
+  Future<void> setDemoScenario(int roomId, DemoScenarioKind scenario) =>
+      _delay(() => lastDemoScenario = scenario);
 }

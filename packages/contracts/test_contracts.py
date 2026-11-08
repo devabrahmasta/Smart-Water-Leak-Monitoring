@@ -80,7 +80,13 @@ class TestMQTTContracts(unittest.TestCase):
     def test_config_rejects_too_short(self):
         with self.assertRaises(ValidationError):
             validate(
-                instance={"continuous_sec": 5, "stable_sec": 300, "quiet_sec": 300},
+                instance={
+                    "continuous_sec": 0,
+                    "stable_sec": 300,
+                    "quiet_sec": 300,
+                    "quiet_start": "01:00",
+                    "quiet_end": "04:00",
+                },
                 schema=self.schemas["config"],
             )
 

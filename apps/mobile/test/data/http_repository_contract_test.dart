@@ -180,6 +180,64 @@ void main() {
     );
   });
 
+  test('ambang kamar: GET fixture dan PUT nilai detik', () async {
+    final (repo, backend) = _repo({
+      'GET /v1/rooms/1/rules': (200, _fixture('rest_room_rules')),
+      'PUT /v1/rooms/1/rules': (
+        200,
+        {
+          'room_id': 1,
+          'continuous_sec': 600,
+          'stable_sec': 1800,
+          'quiet_sec': 900,
+          'quiet_start': '22:00',
+          'quiet_end': '05:00',
+        },
+      ),
+    });
+    final rules = await repo.getRoomRules(1);
+    expect(rules.continuousSec, 2700);
+    final updated = await repo.updateRoomRules(
+      const RoomRules(
+        roomId: 1,
+        continuousSec: 600,
+        stableSec: 1800,
+        quietSec: 900,
+        quietStart: '22:00',
+        quietEnd: '05:00',
+      ),
+    );
+    expect(updated.stableSec, 1800);
+    expect(backend.calls.last.body, {
+      'continuous_sec': 600,
+      'stable_sec': 1800,
+      'quiet_sec': 900,
+      'quiet_start': '22:00',
+      'quiet_end': '05:00',
+    });
+  });
+
+  test('skenario demo: enum huruf besar, kamar nyata ditolak', () async {
+    final (repo, backend) = _repo({
+      'POST /v1/rooms/2/demo-scenario': (202, _fixture('demo_leak_stable')),
+      'POST /v1/rooms/1/demo-scenario': (
+        409,
+        {
+          'error': {
+            'code': 'NOT_SIMULATED',
+            'message': 'Kamar 1 memakai alat asli',
+          },
+        },
+      ),
+    });
+    await repo.setDemoScenario(2, DemoScenarioKind.leakStable);
+    expect(backend.calls.single.body, {'scenario': 'LEAK_STABLE'});
+    await expectLater(
+      repo.setDemoScenario(1, DemoScenarioKind.leakStable),
+      throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 409)),
+    );
+  });
+
   test('push token: POST 204 tanpa body', () async {
     final (repo, backend) = _repo({'POST /v1/push-tokens': (204, null)});
     await repo.registerPushToken('fcm-abc');

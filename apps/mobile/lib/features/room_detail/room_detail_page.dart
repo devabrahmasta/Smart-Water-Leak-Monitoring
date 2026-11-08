@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../components/components.dart';
 import '../../core/format/formatters.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/presentation/labels.dart';
 import '../../core/presentation/screen_body.dart';
 import '../../core/theme/app_tokens.dart';
@@ -12,6 +13,7 @@ import '../../data/providers/providers.dart';
 import '../alerts/alert_actions.dart';
 import '../rooms/room_card_view.dart';
 import '../valve/valve_actions.dart';
+import 'room_rules_sheet.dart';
 
 /// Detail Kamar (US-06).
 class RoomDetailPage extends ConsumerWidget {
@@ -99,6 +101,8 @@ class RoomDetailPage extends ConsumerWidget {
             points: chartPoints(u),
           ),
         ),
+        const SectionTitle('Aturan deteksi'),
+        _RulesSection(roomId: roomId, roomName: name),
         const SectionTitle('Riwayat perintah'),
         AsyncView<List<ValveCommand>>(
           value: commands,
@@ -179,7 +183,10 @@ class _LeakGuide extends ConsumerWidget {
               'Setelah aman, nyalakan air lewat tombol di bawah.',
             ],
           )
-        : leakExplanation(alert);
+        : leakExplanation(
+            alert,
+            rules: ref.watch(roomRulesProvider(room.id)).value,
+          );
     final canOpen = valveSwitchState(room) == ValveSwitchState.off;
     return LeakGuideCard(
       why: text.why,
@@ -194,6 +201,112 @@ class _LeakGuide extends ConsumerWidget {
               closedByLeak: true,
             )
           : null,
+    );
+  }
+}
+
+class _RulesSection extends ConsumerWidget {
+  const _RulesSection({required this.roomId, required this.roomName});
+
+  final int roomId;
+  final String roomName;
+
+  Future<void> _save(
+    BuildContext context,
+    WidgetRef ref,
+    RoomRules updated,
+  ) async {
+    try {
+      await ref.read(repositoryProvider).updateRoomRules(updated);
+      ref.invalidate(roomRulesProvider(roomId));
+      if (!context.mounted) return;
+      showToast(
+        context,
+        type: ToastType.success,
+        message: 'Aturan $roomName dikirim ke alat',
+      );
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      showToast(context, type: ToastType.error, message: e.message);
+    }
+  }
+
+  RoomRuleRow _durationRow(
+    BuildContext context,
+    WidgetRef ref, {
+    required String label,
+    required String message,
+    required int seconds,
+    required RoomRules Function(int) apply,
+  }) => RoomRuleRow(
+    label: label,
+    value: formatDuration(seconds),
+    onTap: () async {
+      final updated = await showDurationSheet(
+        context,
+        title: label,
+        message: message,
+        seconds: seconds,
+      );
+      if (updated == null || !context.mounted) return;
+      await _save(context, ref, apply(updated));
+    },
+  );
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rules = ref.watch(roomRulesProvider(roomId));
+    return AsyncView<RoomRules>(
+      value: rules,
+      showStaleBanner: false,
+      onRetry: () => ref.invalidate(roomRulesProvider(roomId)),
+      builder: (r) => RoomRulesCard(
+        rows: [
+          _durationRow(
+            context,
+            ref,
+            label: 'Air mengalir terus',
+            message: 'Air dihentikan kalau mengalir tanpa jeda selama ini.',
+            seconds: r.continuousSec,
+            apply: (v) => r.copyWith(continuousSec: v),
+          ),
+          _durationRow(
+            context,
+            ref,
+            label: 'Aliran stabil',
+            message:
+                'Air dihentikan kalau derasnya sama terus selama ini. '
+                'Terlalu pendek bisa menghentikan air saat orang mandi.',
+            seconds: r.stableSec,
+            apply: (v) => r.copyWith(stableSec: v),
+          ),
+          _durationRow(
+            context,
+            ref,
+            label: 'Aliran saat jam sepi',
+            message: 'Air dihentikan kalau mengalir selama ini pada jam sepi.',
+            seconds: r.quietSec,
+            apply: (v) => r.copyWith(quietSec: v),
+          ),
+          RoomRuleRow(
+            label: 'Jam sepi',
+            value: formatQuietRange(r.quietStart, r.quietEnd),
+            onTap: () async {
+              final range = await showQuietRangeSheet(
+                context,
+                start: r.quietStart,
+                end: r.quietEnd,
+              );
+              if (range == null || !context.mounted) return;
+              await _save(
+                context,
+                ref,
+                r.copyWith(quietStart: range.$1, quietEnd: range.$2),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

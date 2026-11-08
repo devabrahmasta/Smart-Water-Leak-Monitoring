@@ -1153,50 +1153,72 @@
           "continuous_sec": {
             "type": "integer",
             "maximum": 86400.0,
-            "minimum": 15.0,
+            "minimum": 1.0,
             "title": "Continuous Sec"
           },
           "stable_sec": {
             "type": "integer",
             "maximum": 86400.0,
-            "minimum": 15.0,
+            "minimum": 1.0,
             "title": "Stable Sec"
           },
           "quiet_sec": {
             "type": "integer",
             "maximum": 86400.0,
-            "minimum": 15.0,
+            "minimum": 1.0,
             "title": "Quiet Sec"
+          },
+          "quiet_start": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "title": "Quiet Start"
+          },
+          "quiet_end": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "title": "Quiet End"
           }
         },
         "type": "object",
         "required": [
           "continuous_sec",
           "stable_sec",
-          "quiet_sec"
+          "quiet_sec",
+          "quiet_start",
+          "quiet_end"
         ],
         "title": "RoomRulesBody",
-        "description": "Durasi aturan kebocoran dalam detik (CONTRACT.md 2.10)."
+        "description": "Durasi aturan dalam detik dan jam sepi WIB (CONTRACT.md 2.10)."
       },
       "RoomRulesResponse": {
         "properties": {
           "continuous_sec": {
             "type": "integer",
             "maximum": 86400.0,
-            "minimum": 15.0,
+            "minimum": 1.0,
             "title": "Continuous Sec"
           },
           "stable_sec": {
             "type": "integer",
             "maximum": 86400.0,
-            "minimum": 15.0,
+            "minimum": 1.0,
             "title": "Stable Sec"
           },
           "quiet_sec": {
             "type": "integer",
             "maximum": 86400.0,
-            "minimum": 15.0,
+            "minimum": 1.0,
             "title": "Quiet Sec"
+          },
+          "quiet_start": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "title": "Quiet Start"
+          },
+          "quiet_end": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "title": "Quiet End"
           },
           "room_id": {
             "type": "integer",
@@ -1208,6 +1230,8 @@
           "continuous_sec",
           "stable_sec",
           "quiet_sec",
+          "quiet_start",
+          "quiet_end",
           "room_id"
         ],
         "title": "RoomRulesResponse"

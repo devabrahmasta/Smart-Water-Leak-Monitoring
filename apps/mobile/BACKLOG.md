@@ -5,7 +5,6 @@ Sebagian revisi sudah dikerjakan untuk demo (lihat bawah). Sisanya butuh perubah
 ## Disetujui, menunggu backend + kontrak
 
 - [ ] **Buka valve ≠ kebocoran selesai.** Alert LEAK tetap Aktif sampai pemilik menekan "Tandai sudah diperbaiki" (`POST /v1/alerts/{id}/resolve`, sudah ada di backend tapi belum tercatat di kontrak). Backend perlu menghapus resolve otomatis saat OPEN dan tombol fisik (`services/api/app/mqtt/handlers.py`). Ubah CONTRACT.md + PRD US-08, US-10. Setelah itu: status "Sudah ditangani" dan tombol "Tandai sudah diperbaiki" di Leak Guide Card.
-- [ ] **CONTRACT.md 4 butir 2 perlu disesuaikan.** Aplikasi sudah membuka Detail Kamar dari `room_id` saat notifikasi diketuk, sedangkan kontrak masih menulis sheet detail alert. Payload dan backend tidak berubah.
 - [ ] Halaman Pengaturan: aturan deteksi default (hanya baca). Saat ini penjelasan aturan ada di Leak Guide Card.
 - [ ] Figma: sesuaikan Room Card bocor, Summary Card merah, gradien merah, Leak Guide Card, Mode demo (DESIGN.md sudah diperbarui).
 
@@ -20,7 +19,16 @@ Sebagian revisi sudah dikerjakan untuk demo (lihat bawah). Sisanya butuh perubah
 - [x] `start-dev.ps1 -Accel`
 - [x] Notifikasi diketuk membuka Detail Kamar
 
+## Sudah dikerjakan (branch `feat/room-rules-real-demo`, kontrak versi 1.1)
+
+- [x] Ambang per kamar dari Detail Kamar
+- [x] Aplikasi selalu memakai backend asli, Mode demo hanya mengatur simulator Kamar 2
+- [x] Notifikasi membuka Detail Kamar, tercatat di CONTRACT.md
+
 ## Lainnya
+
+- [ ] Konfirmasi dari perangkat bahwa `config` sudah diterapkan. Saat ini perangkat tidak membalas.
+- [ ] Nilai ambang bawaan (5 menit aliran stabil) berisiko menghentikan air saat orang mandi. Tentukan nilai bawaan baru bersama tim.
 
 - [ ] README backend: perintah seed yang benar `python -m app.seed`.
 - [ ] `.env.example`: `FCM_SERVICE_ACCOUNT_PATH` sebaiknya path absolut. Path relatif dibaca dari folder kerja worker (`services/api`), jadi file tidak ketemu dan FCM diam-diam masuk mode dry-run.

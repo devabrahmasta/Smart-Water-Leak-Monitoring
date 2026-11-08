@@ -64,12 +64,12 @@ Aturan:
 7. *Backend* menganggap `FAILED` bila `ack` tidak datang dalam 15 detik.
 8. Perangkat dianggap offline bila tidak ada pesan selama 30 detik (**Usulan**, 3 kali interval telemetri).
 9. Aturan di perangkat, nilai bawaan: aliran terus menerus 45 menit, aliran stabil ±10% selama 5 menit, aliran di atas 1,0 L/menit selama 5 menit pada jam sepi. Aturan anomali 1,5 kali rata-rata ada di *backend*, bukan di perangkat.
-10. Ketiga durasi aturan bisa diubah per kamar lewat `config`. Perangkat menyimpannya di NVS dan langsung memakainya. Nilai dalam detik, 15 sampai 86400. Perangkat tidak mengirim konfirmasi.
+10. Ketiga durasi aturan dan rentang jam sepi bisa diubah per kamar lewat `config`. Perangkat menyimpannya di NVS dan langsung memakainya. Durasi dalam detik, 1 sampai 86400. Jam sepi dalam WIB, format `HH:MM`, boleh melewati tengah malam, dan mulai tidak boleh sama dengan selesai. Perangkat tidak mengirim konfirmasi.
 11. `demo` hanya untuk simulator Kamar 2. Saat diterima, simulator membuka valve lalu menjalankan skenario itu dengan pemicu dipercepat (1 siklus telemetri). Perangkat nyata tidak berlangganan topik ini.
 
 ```json
 // config
-{ "continuous_sec": 2700, "stable_sec": 300, "quiet_sec": 300 }
+{ "continuous_sec": 2700, "stable_sec": 300, "quiet_sec": 300, "quiet_start": "01:00", "quiet_end": "04:00" }
 
 // demo (scenario: NORMAL, LEAK_CONTINUOUS, LEAK_STABLE, LEAK_QUIET_HOURS, OFFLINE, atau NO_ACK)
 { "scenario": "LEAK_STABLE" }
@@ -185,6 +185,7 @@ Berkas di `packages/contracts`: `openapi.json`, `mqtt-device.md`, `schemas/*.jso
 |---|---|---|
 | 1.0 | 2026-11-07 | Draft pertama |
 | 1.1 | 2026-11-08 | Ambang per kamar (`rules`, `config`), skenario simulator dari aplikasi (`demo-scenario`, `demo`), notifikasi membuka Detail Kamar |
+| 1.2 | 2026-11-08 | Durasi minimal 1 detik, jam sepi per kamar (`quiet_start`, `quiet_end`) |
 
 ## 6. Pertanyaan terbuka
 

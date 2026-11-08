@@ -229,6 +229,11 @@ def _default_sec(db: Session, key: str, fallback_min: int) -> int:
     return (param.as_int() if param else fallback_min) * 60
 
 
+def _default_str(db: Session, key: str, fallback: str) -> str:
+    param = db.query(RuleParam).filter(RuleParam.key == key).first()
+    return param.as_str() if param else fallback
+
+
 def _rules_response(db: Session, room_id: int) -> RoomRulesResponse:
     rule = db.query(RoomRule).filter(RoomRule.room_id == room_id).first()
     if rule:
@@ -237,12 +242,16 @@ def _rules_response(db: Session, room_id: int) -> RoomRulesResponse:
             continuous_sec=rule.continuous_sec,
             stable_sec=rule.stable_sec,
             quiet_sec=rule.quiet_sec,
+            quiet_start=rule.quiet_start,
+            quiet_end=rule.quiet_end,
         )
     return RoomRulesResponse(
         room_id=room_id,
         continuous_sec=_default_sec(db, "leak_duration_min", 45),
         stable_sec=_default_sec(db, "stable_duration_min", 5),
         quiet_sec=_default_sec(db, "night_duration_min", 5),
+        quiet_start=_default_str(db, "quiet_start", "01:00"),
+        quiet_end=_default_str(db, "quiet_end", "04:00"),
     )
 
 
@@ -278,6 +287,8 @@ def update_room_rules(
         rule.continuous_sec = body.continuous_sec
         rule.stable_sec = body.stable_sec
         rule.quiet_sec = body.quiet_sec
+        rule.quiet_start = body.quiet_start
+        rule.quiet_end = body.quiet_end
     db.commit()
 
     if room.device:

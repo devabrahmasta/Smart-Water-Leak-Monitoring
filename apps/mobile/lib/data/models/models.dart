@@ -331,3 +331,73 @@ List<ValveCommand> commandsFromJson(Object? raw) {
 T parseEnum<T extends Enum>(List<T> values, Object? raw) => _enum(values, raw);
 T? parseEnumOrNull<T extends Enum>(List<T> values, Object? raw) =>
     _enumOrNull(values, raw);
+
+/// Ambang aturan kebocoran satu kamar: durasi dalam detik, jam sepi WIB
+/// `HH:MM` (`GET/PUT /v1/rooms/{id}/rules`).
+class RoomRules {
+  const RoomRules({
+    required this.roomId,
+    required this.continuousSec,
+    required this.stableSec,
+    required this.quietSec,
+    required this.quietStart,
+    required this.quietEnd,
+  });
+
+  factory RoomRules.fromJson(Map<String, dynamic> j) => RoomRules(
+    roomId: j['room_id'] as int,
+    continuousSec: j['continuous_sec'] as int,
+    stableSec: j['stable_sec'] as int,
+    quietSec: j['quiet_sec'] as int,
+    quietStart: j['quiet_start'] as String,
+    quietEnd: j['quiet_end'] as String,
+  );
+
+  /// Batas nilai sesuai CONTRACT.md 2.10.
+  static const minSec = 1;
+  static const maxSec = 86400;
+
+  final int roomId;
+  final int continuousSec;
+  final int stableSec;
+  final int quietSec;
+  final String quietStart;
+  final String quietEnd;
+
+  RoomRules copyWith({
+    int? continuousSec,
+    int? stableSec,
+    int? quietSec,
+    String? quietStart,
+    String? quietEnd,
+  }) => RoomRules(
+    roomId: roomId,
+    continuousSec: continuousSec ?? this.continuousSec,
+    stableSec: stableSec ?? this.stableSec,
+    quietSec: quietSec ?? this.quietSec,
+    quietStart: quietStart ?? this.quietStart,
+    quietEnd: quietEnd ?? this.quietEnd,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'continuous_sec': continuousSec,
+    'stable_sec': stableSec,
+    'quiet_sec': quietSec,
+    'quiet_start': quietStart,
+    'quiet_end': quietEnd,
+  };
+}
+
+/// Skenario simulator Kamar 2 (`POST /v1/rooms/{id}/demo-scenario`).
+enum DemoScenarioKind {
+  normal('NORMAL'),
+  leakContinuous('LEAK_CONTINUOUS'),
+  leakStable('LEAK_STABLE'),
+  leakQuietHours('LEAK_QUIET_HOURS'),
+  offline('OFFLINE'),
+  noAck('NO_ACK');
+
+  const DemoScenarioKind(this.wire);
+
+  final String wire;
+}

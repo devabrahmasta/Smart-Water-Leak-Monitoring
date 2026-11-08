@@ -51,6 +51,10 @@ DNS.1 = localhost
 DNS.2 = host.docker.internal
 IP.1 = 127.0.0.1
 IP.2 = 0.0.0.0
+IP.3 = 192.168.1.114
+DNS.3 = 192.168.1.114
+IP.4 = 10.129.156.5
+DNS.4 = 10.129.156.5
 "@
 
 $caCnf | Out-File -FilePath "$certDir/ca.cnf" -Encoding ascii

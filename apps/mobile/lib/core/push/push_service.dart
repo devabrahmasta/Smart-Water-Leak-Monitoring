@@ -95,15 +95,14 @@ Future<void> _showFromData(Map<String, dynamic> data) async {
 /// backend (CONTRACT.md 4.2), muncul setelah [delay] supaya pengguna sempat
 /// keluar dari aplikasi. Mengetuknya membuka Detail Kamar [roomId].
 Future<void> showDemoLeakNotification({
-  required int alertId,
   required int roomId,
   required String roomName,
-  Duration delay = const Duration(seconds: 5),
+  Duration delay = const Duration(seconds: 12),
 }) async {
   await Future<void>.delayed(delay);
   await _showFromData({
     'type': 'LEAK',
-    'alert_id': '$alertId',
+    'alert_id': '0',
     'room_id': '$roomId',
     'title': 'Kebocoran terdeteksi',
     'body': '$roomName: aliran stabil terdeteksi. Valve sudah ditutup.',

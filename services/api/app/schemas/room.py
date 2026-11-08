@@ -4,7 +4,7 @@ Pydantic Schemas untuk Room dan Detail Kamar (R-07).
 
 from enum import Enum
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.alert import AlertDetailResponse
 from app.schemas.command import ValveCommandDetailResponse
@@ -46,11 +46,19 @@ class RoomCommandsResponse(BaseModel):
 
 
 class RoomRulesBody(BaseModel):
-    """Durasi aturan kebocoran dalam detik (CONTRACT.md 2.10)."""
+    """Durasi aturan dalam detik dan jam sepi WIB (CONTRACT.md 2.10)."""
 
-    continuous_sec: int = Field(ge=15, le=86400)
-    stable_sec: int = Field(ge=15, le=86400)
-    quiet_sec: int = Field(ge=15, le=86400)
+    continuous_sec: int = Field(ge=1, le=86400)
+    stable_sec: int = Field(ge=1, le=86400)
+    quiet_sec: int = Field(ge=1, le=86400)
+    quiet_start: str = Field(pattern=r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+    quiet_end: str = Field(pattern=r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+
+    @model_validator(mode="after")
+    def _quiet_range_not_empty(self):
+        if self.quiet_start == self.quiet_end:
+            raise ValueError("Jam mulai dan selesai tidak boleh sama")
+        return self
 
 
 class RoomRulesResponse(RoomRulesBody):

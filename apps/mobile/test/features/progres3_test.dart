@@ -3,14 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:smart_water/components/components.dart';
+import 'package:smart_water/core/config/env.dart';
 import 'package:smart_water/core/presentation/labels.dart';
 import 'package:smart_water/core/push/push_service.dart';
 import 'package:smart_water/core/router/app_router.dart';
 import 'package:smart_water/core/theme/app_colors.dart';
 import 'package:smart_water/data/mock/mock_smart_water_repository.dart';
 import 'package:smart_water/data/models/models.dart';
-import 'package:smart_water/data/providers/providers.dart';
 import 'package:smart_water/features/home/home_page.dart';
+import 'package:smart_water/features/room_detail/room_rules_sheet.dart';
 
 import '../helpers.dart';
 
@@ -68,7 +69,7 @@ void main() {
     expect(continuous.steps, isNotEmpty);
     expect(
       leakExplanation(_leak(AlertRule.quietHours, {})).why,
-      contains('01.00 dan 04.00'),
+      contains('01.00 sampai 04.00'),
     );
   });
 
@@ -121,12 +122,98 @@ void main() {
     expect(find.text('Kenapa terdeteksi bocor'), findsOneWidget);
   });
 
-  test('mode demo mengganti sumber data ke skenario mock', () async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    container.read(demoScenarioProvider.notifier).set(MockScenario.offline);
-    final repo = container.read(repositoryProvider);
-    expect(repo, isA<MockSmartWaterRepository>());
-    expect((repo as MockSmartWaterRepository).scenario, MockScenario.offline);
+  test('aplikasi memakai backend asli kecuali USE_MOCK diisi', () {
+    expect(Env.useMock, isFalse);
+  });
+
+  testWidgets('Mode demo hanya mengatur Kamar 2', (tester) async {
+    final repo = await pumpApp(tester);
+    await tester.tap(find.bySemanticsLabel('Mode demo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Data asli dari alat'), findsNothing);
+    expect(find.text('Data contoh bawaan'), findsNothing);
+    await tester.tap(find.text('Bocor: aliran stabil'));
+    await tester.pumpAndSettle();
+    expect(repo.lastDemoScenario, DemoScenarioKind.leakStable);
+    await tester.pump(const Duration(seconds: 4));
+  });
+
+  Future<void> openRules(WidgetTester tester, String row) async {
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HomePage)),
+    );
+    container.read(routerProvider).go(AppRoutes.homeRoom(1));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Jam sepi'), 200);
+    // Keluar dari bawah nav melayang.
+    await tester.drag(find.byType(ListView).first, const Offset(0, -200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(row));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('satu aturan diubah sendiri, per kamar, sampai 5 detik', (
+    tester,
+  ) async {
+    final repo = await pumpApp(tester);
+    await openRules(tester, 'Aliran stabil');
+    expect(find.byType(TextField), findsNWidgets(3));
+    expect(find.text('Jam'), findsOneWidget);
+    expect(find.text('Menit'), findsOneWidget);
+    expect(find.text('Detik'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).at(1), '00');
+    await tester.enterText(find.byType(TextField).at(2), '05');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    final room1 = await repo.getRoomRules(1);
+    expect(room1.stableSec, 5);
+    expect(room1.continuousSec, 2700);
+    expect((await repo.getRoomRules(2)).stableSec, 300);
+    expect(find.text('5 detik'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+  });
+
+  testWidgets('jam sepi diatur mulai dan selesai', (tester) async {
+    final repo = await pumpApp(tester);
+    await openRules(tester, 'Jam sepi');
+    expect(find.byType(TextField), findsNWidgets(4));
+    await tester.enterText(find.byType(TextField).at(0), '22');
+    await tester.enterText(find.byType(TextField).at(1), '30');
+    await tester.enterText(find.byType(TextField).at(2), '05');
+    await tester.enterText(find.byType(TextField).at(3), '00');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    final rules = await repo.getRoomRules(1);
+    expect(rules.quietStart, '22:30');
+    expect(rules.quietEnd, '05:00');
+    expect(rules.quietSec, 300);
+    expect(find.text('22.30 sampai 05.00'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+  });
+
+  test('isian durasi mengikuti batas kontrak', () {
+    expect(parseDurationFields('00', '45', '00'), 2700);
+    expect(parseDurationFields('', '', '5'), 5);
+    expect(parseDurationFields('24', '00', '00'), 86400);
+    expect(parseDurationFields('00', '00', '01'), 1);
+    expect(parseDurationFields('00', '00', '00'), isNull);
+    expect(parseDurationFields('24', '00', '01'), isNull);
+    expect(parseDurationFields('00', '60', '00'), isNull);
+  });
+
+  test('isian jam mengikuti format HH:MM', () {
+    expect(parseClockFields('1', '0'), '01:00');
+    expect(parseClockFields('23', '59'), '23:59');
+    expect(parseClockFields('24', '00'), isNull);
+    expect(parseClockFields('', '00'), isNull);
+  });
+
+  test('durasi ditulis dalam bahasa sehari-hari', () {
+    expect(formatDuration(5), '5 detik');
+    expect(formatDuration(90), '1 menit 30 detik');
+    expect(formatDuration(2700), '45 menit');
+    expect(formatDuration(5400), '1 jam 30 menit');
   });
 }

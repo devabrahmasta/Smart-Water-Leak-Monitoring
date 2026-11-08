@@ -54,13 +54,15 @@
 const float FLOW_CALIBRATION_FACTOR = 7.5;
 
 // Parameter Deteksi Kebocoran Lokal (CONTRACT.md 2.9)
-const unsigned long CONTINUOUS_LEAK_MS = 45UL * 60UL * 1000UL; // 45 menit
-const unsigned long STABLE_LEAK_MS     = 5UL * 60UL * 1000UL;  // 5 menit
+// Nilai bawaan. Bisa diubah per kamar dari aplikasi lewat topik config,
+// lalu disimpan di NVS (CONTRACT.md 2.10).
+unsigned long continuousLeakMs = 45UL * 60UL * 1000UL; // 45 menit
+unsigned long stableLeakMs     = 5UL * 60UL * 1000UL;  // 5 menit
+unsigned long quietLeakMs      = 5UL * 60UL * 1000UL;  // 5 menit
+int quietStartMin = 1 * 60;                             // 01:00 WIB, menit sejak 00:00
+int quietEndMin   = 4 * 60;                             // 04:00 WIB
 const float         STABLE_VARIATION_PCT = 0.10f;              // Variasi <= 10%
-const unsigned long QUIET_LEAK_MS      = 5UL * 60UL * 1000UL;  // 5 menit
 const float         QUIET_FLOW_THRESHOLD = 1.0f;               // > 1.0 L/menit
-const int           QUIET_START_HOUR   = 1;                    // 01:00 WIB
-const int           QUIET_END_HOUR     = 4;                    // 04:00 WIB
 
 // Interval Pengiriman
 const unsigned long TELEMETRY_INTERVAL_MS = 10000UL; // 10 detik
@@ -82,6 +84,7 @@ String topicAlert;
 String topicStatus;
 String topicCmd;
 String topicAck;
+String topicConfig;
 
 // Status & Variabel Sistem
 volatile unsigned long pulseCount = 0;
@@ -165,14 +168,23 @@ bool getNtpTime(char* buffer, size_t maxLen) {
   return true;
 }
 
-int getLocalHourWIB() {
+// Menit sejak 00:00 WIB.
+int getLocalMinuteOfDayWIB() {
   time_t now;
   struct tm timeinfo;
   time(&now);
   // Tambah offset WIB (UTC+7) = 7 * 3600 detik
   time_t nowWib = now + (7 * 3600);
   gmtime_r(&nowWib, &timeinfo);
-  return timeinfo.tm_hour;
+  return timeinfo.tm_hour * 60 + timeinfo.tm_min;
+}
+
+// Rentang jam sepi boleh melewati tengah malam, mis. 22:00 sampai 05:00.
+bool isInQuietHours(int minuteOfDay) {
+  if (quietStartMin < quietEndMin) {
+    return minuteOfDay >= quietStartMin && minuteOfDay < quietEndMin;
+  }
+  return minuteOfDay >= quietStartMin || minuteOfDay < quietEndMin;
 }
 
 // ==========================================
@@ -264,9 +276,61 @@ void sendAck(uint32_t cmdId, const char* result) {
 }
 
 // ==========================================
+// AMBANG PER KAMAR DARI APLIKASI (CONTRACT.md 2.10)
+// ==========================================
+// "HH:MM" menjadi menit sejak 00:00. -1 bila formatnya salah.
+int parseMinuteOfDay(const char* text) {
+  int hour = -1;
+  int minute = -1;
+  if (sscanf(text, "%d:%d", &hour, &minute) != 2) return -1;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return -1;
+  return hour * 60 + minute;
+}
+
+void applyRuleConfig(byte* payload, unsigned int length) {
+  JsonDocument doc;
+  if (deserializeJson(doc, payload, length)) return;
+
+  unsigned long continuousSec = doc["continuous_sec"] | 0UL;
+  unsigned long stableSec = doc["stable_sec"] | 0UL;
+  unsigned long quietSec = doc["quiet_sec"] | 0UL;
+  int quietStart = parseMinuteOfDay(doc["quiet_start"] | "");
+  int quietEnd = parseMinuteOfDay(doc["quiet_end"] | "");
+  if (quietStart < 0 || quietEnd < 0 || quietStart == quietEnd) return;
+
+  const unsigned long minSec = 1UL;
+  const unsigned long maxSec = 86400UL;
+  if (continuousSec < minSec || continuousSec > maxSec ||
+      stableSec < minSec || stableSec > maxSec ||
+      quietSec < minSec || quietSec > maxSec) {
+    return;
+  }
+
+  continuousLeakMs = continuousSec * 1000UL;
+  stableLeakMs = stableSec * 1000UL;
+  quietLeakMs = quietSec * 1000UL;
+  prefs.putULong("cont_ms", continuousLeakMs);
+  prefs.putULong("stab_ms", stableLeakMs);
+  prefs.putULong("quiet_ms", quietLeakMs);
+  quietStartMin = quietStart;
+  quietEndMin = quietEnd;
+  prefs.putInt("quiet_start", quietStartMin);
+  prefs.putInt("quiet_end", quietEndMin);
+
+  // Hitung ulang dari awal supaya ambang baru berlaku penuh.
+  continuousFlowStartMs = 0;
+  stableFlowStartMs = 0;
+  quietHoursFlowStartMs = 0;
+}
+
+// ==========================================
 // MQTT CALLBACK (MENERIMA CMD DARI APLIKASI)
 // ==========================================
 void onMqttMessage(char* topic, byte* payload, unsigned int length) {
+  if (String(topic) == topicConfig) {
+    applyRuleConfig(payload, length);
+    return;
+  }
   if (String(topic) != topicCmd) return;
 
   JsonDocument doc;
@@ -317,7 +381,7 @@ void checkLeakRules(unsigned long now) {
   if (currentFlowRateLpm > 0.1f) {
     if (continuousFlowStartMs == 0) {
       continuousFlowStartMs = now;
-    } else if (now - continuousFlowStartMs >= CONTINUOUS_LEAK_MS) {
+    } else if (now - continuousFlowStartMs >= continuousLeakMs) {
       sendAlert("CONTINUOUS");
       continuousFlowStartMs = 0;
       return;
@@ -334,7 +398,7 @@ void checkLeakRules(unsigned long now) {
     } else {
       float diff = abs(currentFlowRateLpm - stableBaselineFlow);
       if (diff / stableBaselineFlow <= STABLE_VARIATION_PCT) {
-        if (now - stableFlowStartMs >= STABLE_LEAK_MS) {
+        if (now - stableFlowStartMs >= stableLeakMs) {
           sendAlert("STABLE");
           stableFlowStartMs = 0;
           return;
@@ -349,16 +413,15 @@ void checkLeakRules(unsigned long now) {
     stableFlowStartMs = 0;
   }
 
-  // 3. Aliran Jam Sepi (QUIET_HOURS): flow > 1.0 L/menit selama 5 menit pada jam 01:00 - 04:00 WIB
+  // 3. Aliran Jam Sepi (QUIET_HOURS): flow > 1.0 L/menit melewati batas pada rentang jam sepi kamar
   char dummyBuf[30];
   if (getNtpTime(dummyBuf, sizeof(dummyBuf))) {
-    int currentHourWib = getLocalHourWIB();
-    bool isQuietHours = (currentHourWib >= QUIET_START_HOUR && currentHourWib < QUIET_END_HOUR);
+    bool isQuietHours = isInQuietHours(getLocalMinuteOfDayWIB());
 
     if (isQuietHours && currentFlowRateLpm >= QUIET_FLOW_THRESHOLD) {
       if (quietHoursFlowStartMs == 0) {
         quietHoursFlowStartMs = now;
-      } else if (now - quietHoursFlowStartMs >= QUIET_LEAK_MS) {
+      } else if (now - quietHoursFlowStartMs >= quietLeakMs) {
         sendAlert("QUIET_HOURS");
         quietHoursFlowStartMs = 0;
         return;
@@ -399,6 +462,8 @@ void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) return;
 
   WiFi.mode(WIFI_STA);
+  // Modem sleep bisa menunda paket dan memutus koneksi MQTT.
+  WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   unsigned long startAttempt = millis();
@@ -425,6 +490,7 @@ void connectMqtt() {
   String clientId = "ESP32_SWM_" + String(MQTT_DEVICE_ID) + "_" + String(random(0xffff), HEX);
   if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
     mqttClient.subscribe(topicCmd.c_str(), 1); // QoS 1
+    mqttClient.subscribe(topicConfig.c_str(), 1); // Retained: diterima lagi setiap tersambung
     digitalWrite(PIN_LED_BLUE, HIGH);
   } else {
     digitalWrite(PIN_LED_BLUE, LOW);
@@ -455,6 +521,13 @@ void setup() {
   // Default pertama kali = true (Normaly Closed valve standby terbuka saat normal)
   valveIsOpen = prefs.getBool("valve_open", true);
 
+  // Ambang kamar terakhir dari aplikasi
+  continuousLeakMs = prefs.getULong("cont_ms", continuousLeakMs);
+  stableLeakMs = prefs.getULong("stab_ms", stableLeakMs);
+  quietLeakMs = prefs.getULong("quiet_ms", quietLeakMs);
+  quietStartMin = prefs.getInt("quiet_start", quietStartMin);
+  quietEndMin = prefs.getInt("quiet_end", quietEndMin);
+
   // Terapkan status valve hasil restore NVS
   applyValveState(valveIsOpen);
 
@@ -464,11 +537,14 @@ void setup() {
   topicStatus    = "swm/" + String(MQTT_DEVICE_ID) + "/status";
   topicCmd       = "swm/" + String(MQTT_DEVICE_ID) + "/cmd";
   topicAck       = "swm/" + String(MQTT_DEVICE_ID) + "/ack";
+  topicConfig    = "swm/" + String(MQTT_DEVICE_ID) + "/config";
 
   // Konfigurasi MQTT Client
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
   mqttClient.setCallback(onMqttMessage);
   mqttClient.setBufferSize(512);
+  // Beri ruang untuk gangguan Wi-Fi sesaat (default PubSubClient 15 detik).
+  mqttClient.setKeepAlive(60);
 
   // Sambungkan WiFi & MQTT
   connectWiFi();

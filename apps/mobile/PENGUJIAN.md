@@ -25,16 +25,23 @@ Simulator = Kamar 2. `-Accel` mempercepat pemicu kebocoran jadi ±30 detik, jadi
 | 8 | `-Scenario offline` | Simulator diam, backend menandai offline setelah 30 dtk | Kamar 2 Offline, "Cek listrik dan WiFi kamar", saklar tidak bisa disentuh |
 | 9 | Tutup jendela Simulator, lalu di root: `python -m services.simulator.main --button` | Event tombol fisik membalik status valve | Saat valve dibuka: alert Aktivitas "Air Kamar 2 dinyalakan · Tombol di alat". **Saat valve ditutup: gagal di backend**, `CommandAction("CLOSED")` tidak valid di `handle_status` |
 
-## Mode demo (tanpa backend, cadangan bila Wi-Fi bermasalah)
+## Mode demo (hanya Kamar 2)
 
-Beranda → ikon tabung di kanan atas → **Mode demo**.
+Beranda → ikon tabung di kanan atas → **Mode demo**. Pilihan ini dikirim ke backend lalu ke simulator, jadi tetap butuh backend menyala. Kamar 1 selalu memakai alat asli.
 
 | Input | Output |
 |---|---|
-| Pilih "Kamar 2 bocor" | Beranda merah, Detail Kamar 2 berisi penjelasan dan langkah |
-| "Kirim notifikasi bocor" lalu keluar dari aplikasi | 5 dtk kemudian notifikasi "Kebocoran terdeteksi" masuk. Mengetuknya membuka Detail Kamar 2 |
-| Pilih "Kamar 2 offline" / "Alat tidak merespons" | Sama seperti #8 / #7 tanpa menunggu |
-| Pilih "Data asli dari alat" | Kembali ke backend |
+| Pilih "Bocor: aliran stabil" | ±10 dtk: valve Kamar 2 tertutup, Beranda merah, Detail Kamar 2 berisi penjelasan |
+| "Kirim notifikasi bocor" lalu keluar dari aplikasi | ±15 dtk notifikasi masuk. Mengetuknya membuka Detail Kamar 2 |
+| Pilih "Offline" | ±40 dtk: Kamar 2 Offline |
+| Pilih "Alat tidak merespons", lalu geser saklar | Toast gagal setelah 15 dtk |
+| Pilih "Normal" | Kamar 2 kembali Normal |
+
+## Ambang per kamar
+
+Detail Kamar → **Aturan deteksi** → ketuk satu aturan. Nilai bawaan: air mengalir terus 45 menit, aliran stabil 5 menit, aliran saat jam sepi 5 menit, jam sepi 01.00 sampai 04.00.
+
+Untuk demo Kamar 1: ketuk **Aliran stabil**, isi `00 : 00 : 05` (5 detik), lalu buka keran. Batas minimal 1 detik, maksimal 24 jam. Setelah demo, kembalikan ke `00 : 05 : 00`.
 
 ## Push FCM (belum pernah dites)
 

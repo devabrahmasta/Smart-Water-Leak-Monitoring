@@ -15,6 +15,7 @@ export 'leak_guide_card.dart';
 export 'metric_tile.dart';
 export 'room_card.dart';
 export 'room_compare.dart';
+export 'room_rules_card.dart';
 export 'screen_header.dart';
 export 'segmented_control.dart';
 export 'status_chip.dart';

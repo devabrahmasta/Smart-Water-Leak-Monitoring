@@ -27,4 +27,13 @@ abstract interface class SmartWaterRepository {
   Future<ValveCommand> getCommand(int id);
 
   Future<void> registerPushToken(String token);
+
+  /// `GET /v1/rooms/{id}/rules`.
+  Future<RoomRules> getRoomRules(int roomId);
+
+  /// `PUT /v1/rooms/{id}/rules`. Backend meneruskannya ke perangkat.
+  Future<RoomRules> updateRoomRules(RoomRules rules);
+
+  /// `POST /v1/rooms/{id}/demo-scenario`. Hanya kamar simulator.
+  Future<void> setDemoScenario(int roomId, DemoScenarioKind scenario);
 }

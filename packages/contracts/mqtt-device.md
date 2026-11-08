@@ -23,7 +23,7 @@ Sumber kebenaran: [docs/CONTRACT.md](../../docs/CONTRACT.md) Bagian 2.
 | `swm/{device_id}/status` | ESP32 → Broker | Saat boot dan saat tombol fisik ditekan | Perubahan posisi valve lokal |
 | `swm/{device_id}/cmd` | Broker → ESP32 | Saat pengguna menekan buka/tutup di aplikasi | Perintah kendali valve |
 | `swm/{device_id}/ack` | ESP32 → Broker | Setelah perintah `cmd` selesai dieksekusi | Konfirmasi eksekusi perintah |
-| `swm/{device_id}/config` | Broker → ESP32 | Saat ambang kamar diubah, *retained* | Durasi aturan dalam detik (15 sampai 86400), disimpan di NVS |
+| `swm/{device_id}/config` | Broker → ESP32 | Saat ambang kamar diubah, *retained* | Durasi aturan dalam detik (1 sampai 86400) dan jam sepi WIB (`HH:MM`), disimpan di NVS |
 | `swm/2/demo` | Broker → Simulator | Saat skenario Kamar 2 dipilih di Mode demo | Hanya simulator, tidak untuk perangkat nyata |
 
 ---

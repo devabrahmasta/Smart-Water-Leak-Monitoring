@@ -46,9 +46,9 @@ Galeri komponen untuk dibandingkan dengan Figma page *Components*: jalankan buil
 
 | `--dart-define` | Default | Fungsi |
 |---|---|---|
-| `USE_MOCK` | `true` | Data contoh sesuai kontrak, tanpa backend |
+| `USE_MOCK` | `false` | `true` hanya untuk mengembangkan layar tanpa backend |
 | `MOCK_SCENARIO` | `standard` | `all-normal`, `offline`, `empty`, `no-ack` |
-| `API_BASE_URL`, `API_TOKEN` | kosong | Backend asli (`USE_MOCK=false`) |
+| `API_BASE_URL`, `API_TOKEN` | kosong | Alamat dan token backend. Diisi otomatis oleh `run-backend.ps1` |
 | `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_SENDER_ID`, `FIREBASE_PROJECT_ID` | kosong | Push FCM. Kosong = push mati, aplikasi tetap jalan |
 
 Nilai Firebase diambil dari Firebase Console → Project settings → aplikasi Android. Tidak perlu `google-services.json`.

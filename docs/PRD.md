@@ -420,7 +420,7 @@ Data yang disimpan hanya pemakaian air per kamar dan token FCM. Tidak ada nama p
 | Fase | Isi | Status |
 |---|---|---|
 | **MVP (demo 15 Nov 2026)** | US-01 sampai US-20, 2 kamar (1 nyata, 1 simulator) | ⬜ Planned |
-| **v1.1** | Login pemilik dengan token per sesi, mode gelap. Ubah ambang per kamar dari aplikasi sudah masuk (CONTRACT.md versi 1.1) | ⬜ Planned |
+| **v1.1** | Login pemilik dengan token per sesi, mode gelap. Ubah ambang per kamar dari aplikasi sudah masuk (CONTRACT.md versi 1.2) | ⬜ Planned |
 | **v2.0** | Banyak properti, peran penghuni, iOS | ⬜ Planned |
 
 Tanggal demo dari timeline laporan (26 Okt sampai 15 Nov 2026).
