@@ -10,18 +10,19 @@ import 'alert_detail_sheet.dart';
 
 /// Buka sheet detail alert. Untuk LEAK yang masih aktif (valve tertutup),
 /// sheet berisi tombol Buka valve dengan alur US-08 (US-11).
+/// [roomRoute] null = tanpa tombol Lihat kamar (sudah di Detail Kamar).
 Future<void> openAlertDetail(
   BuildContext context,
   WidgetRef ref, {
   required Alert alert,
-  required String roomRoute,
+  required String? roomRoute,
 }) {
   final canOpenValve =
       alert.type == AlertType.leak && alert.status == AlertStatus.open;
   return showAlertDetailSheet(
     context,
     alert: alert,
-    onViewRoom: () => context.go(roomRoute),
+    onViewRoom: roomRoute == null ? null : () => context.go(roomRoute),
     onOpenValve: canOpenValve
         ? () => requestValveChange(
             context,

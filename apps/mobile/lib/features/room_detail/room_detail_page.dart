@@ -131,7 +131,8 @@ class RoomDetailPage extends ConsumerWidget {
                           context,
                           ref,
                           alert: d.recentAlerts[i],
-                          roomRoute: GoRouterState.of(context).uri.path,
+                          // Sudah di kamar ini: tanpa tombol Lihat kamar.
+                          roomRoute: null,
                         ),
                       ),
                     ],

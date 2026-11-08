@@ -9,16 +9,19 @@ import '../../core/theme/app_tokens.dart';
 import '../../data/models/models.dart';
 
 /// Sheet detail alert (US-11): aturan yang terpicu, kamar, waktu, status.
-/// [onOpenValve] diisi di R-12 untuk LEAK yang valve-nya tertutup.
+/// [onViewRoom] null = tanpa tombol Lihat kamar (dibuka dari Detail Kamar
+/// itu sendiri). [onOpenValve] hanya untuk LEAK yang valve-nya tertutup.
 Future<void> showAlertDetailSheet(
   BuildContext context, {
   required Alert alert,
-  required VoidCallback onViewRoom,
+  VoidCallback? onViewRoom,
   VoidCallback? onOpenValve,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     useRootNavigator: true,
+    // Boleh lebih tinggi dari setengah layar saat teks diperbesar.
+    isScrollControlled: true,
     backgroundColor: Colors.transparent,
     elevation: 0,
     barrierColor: AppColors.ink.withValues(alpha: 0.4),
@@ -29,18 +32,22 @@ Future<void> showAlertDetailSheet(
         AppSpacing.gutter,
         AppSpacing.xxl,
       ),
-      child: _AlertDetail(
-        alert: alert,
-        onViewRoom: () {
-          Navigator.of(sheetContext).pop();
-          onViewRoom();
-        },
-        onOpenValve: onOpenValve == null
-            ? null
-            : () {
-                Navigator.of(sheetContext).pop();
-                onOpenValve();
-              },
+      child: SingleChildScrollView(
+        child: _AlertDetail(
+          alert: alert,
+          onViewRoom: onViewRoom == null
+              ? null
+              : () {
+                  Navigator.of(sheetContext).pop();
+                  onViewRoom();
+                },
+          onOpenValve: onOpenValve == null
+              ? null
+              : () {
+                  Navigator.of(sheetContext).pop();
+                  onOpenValve();
+                },
+        ),
       ),
     ),
   );
@@ -54,7 +61,7 @@ class _AlertDetail extends StatelessWidget {
   });
 
   final Alert alert;
-  final VoidCallback onViewRoom;
+  final VoidCallback? onViewRoom;
   final VoidCallback? onOpenValve;
 
   @override
@@ -130,29 +137,32 @@ class _AlertDetail extends StatelessWidget {
                 ],
               ),
             ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: AppButton(
-                  label: 'Lihat kamar',
-                  style: AppButtonStyle.secondary,
-                  expand: true,
-                  onPressed: onViewRoom,
-                ),
-              ),
-              if (onOpenValve != null) ...[
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: AppButton(
-                    label: 'Buka valve',
-                    expand: true,
-                    onPressed: onOpenValve,
+          if (onViewRoom != null || onOpenValve != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                if (onViewRoom != null)
+                  Expanded(
+                    child: AppButton(
+                      label: 'Lihat kamar',
+                      style: AppButtonStyle.secondary,
+                      expand: true,
+                      onPressed: onViewRoom,
+                    ),
                   ),
-                ),
+                if (onOpenValve != null) ...[
+                  if (onViewRoom != null) const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: AppButton(
+                      label: 'Buka valve',
+                      expand: true,
+                      onPressed: onOpenValve,
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );
