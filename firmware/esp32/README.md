@@ -18,7 +18,17 @@ Library: PubSubClient, WiFiClientSecure, ArduinoJson, Preferences (NVS), NTP.
 
 Salin `secrets.example.h` menjadi `secrets.h` lalu isi. `secrets.h` sudah di `.gitignore`.
 
-## Belum diputuskan
+## Keputusan Hardware & Rangkaian (R-13)
 
-- Jam sepi 00.00 atau 01.00 s.d. 04.00 (CONTRACT.md 6.1).
-- Relay NC atau NO (PRD 6.3).
+- **Board**: ESP32 Dev Module
+- **Relay & Valve**: Logika Normally Closed (NC). Terminal kabel solenoid dihubungkan ke COM & NC.
+  - Normal (Air Terbuka): Relay OFF (jalur NC tersambung).
+  - Bocor / Tutup: Relay ON (memutus kontak NC).
+- **Pinout GPIO**:
+  - Flow Sensor (YF-S201): `GPIO 4`
+  - Relay Valve: `GPIO 13`
+  - Manual Push Button: `GPIO 18` (1x klik untuk membuka valve darurat)
+  - LED Merah (Bocor/Tutup): `GPIO 23`
+  - LED Hijau (Normal/Buka): `GPIO 33`
+  - LED Biru (Status Koneksi WiFi/MQTT): `GPIO 22`
+- **Jam Sepi**: 01.00 s.d. 04.00 WIB (flow > 1.0 L/menit selama >= 5 menit).
