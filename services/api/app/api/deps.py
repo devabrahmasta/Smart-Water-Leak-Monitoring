@@ -79,3 +79,4 @@ _global_publisher = RealMQTTPublisher()
 def get_mqtt_publisher():
     """Dependency untuk inject MQTT publisher (bisa di-override saat pengujian)."""
     return _global_publisher
+

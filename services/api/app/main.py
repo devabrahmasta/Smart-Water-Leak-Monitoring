@@ -58,3 +58,4 @@ def health_check():
 
 # Registrasi router API v1
 app.include_router(commands_router)
+
