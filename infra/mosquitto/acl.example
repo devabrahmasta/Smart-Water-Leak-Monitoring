@@ -7,6 +7,8 @@ topic read swm/+/alert
 topic read swm/+/status
 topic read swm/+/ack
 topic write swm/+/cmd
+topic write swm/+/config
+topic write swm/+/demo
 
 # Perangkat dan simulator: hanya topiknya sendiri (%u = username)
 pattern write swm/%u/telemetry
@@ -14,3 +16,8 @@ pattern write swm/%u/alert
 pattern write swm/%u/status
 pattern write swm/%u/ack
 pattern read swm/%u/cmd
+pattern read swm/%u/config
+
+# Hanya simulator yang menerima skenario demo
+user 2
+topic read swm/2/demo

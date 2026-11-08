@@ -273,6 +273,163 @@
         }
       }
     },
+    "/v1/rooms/{room_id}/rules": {
+      "get": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Ambang aturan kebocoran satu kamar",
+        "operationId": "get_room_rules_v1_rooms__room_id__rules_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Room Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomRulesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Ubah ambang kamar dan kirim config retained ke perangkat",
+        "operationId": "update_room_rules_v1_rooms__room_id__rules_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Room Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomRulesBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomRulesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_id}/demo-scenario": {
+      "post": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Pilih skenario simulator. Kamar nyata ditolak.",
+        "operationId": "set_demo_scenario_v1_rooms__room_id__demo_scenario_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Room Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoScenarioBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/usage": {
       "get": {
         "tags": [
@@ -774,6 +931,30 @@
         ],
         "title": "AlertListResponse"
       },
+      "DemoScenarioBody": {
+        "properties": {
+          "scenario": {
+            "$ref": "#/components/schemas/DemoScenarioEnum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario"
+        ],
+        "title": "DemoScenarioBody"
+      },
+      "DemoScenarioEnum": {
+        "type": "string",
+        "enum": [
+          "NORMAL",
+          "LEAK_CONTINUOUS",
+          "LEAK_STABLE",
+          "LEAK_QUIET_HOURS",
+          "OFFLINE",
+          "NO_ACK"
+        ],
+        "title": "DemoScenarioEnum"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -966,6 +1147,70 @@
           "rooms"
         ],
         "title": "RoomListResponse"
+      },
+      "RoomRulesBody": {
+        "properties": {
+          "continuous_sec": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 15.0,
+            "title": "Continuous Sec"
+          },
+          "stable_sec": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 15.0,
+            "title": "Stable Sec"
+          },
+          "quiet_sec": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 15.0,
+            "title": "Quiet Sec"
+          }
+        },
+        "type": "object",
+        "required": [
+          "continuous_sec",
+          "stable_sec",
+          "quiet_sec"
+        ],
+        "title": "RoomRulesBody",
+        "description": "Durasi aturan kebocoran dalam detik (CONTRACT.md 2.10)."
+      },
+      "RoomRulesResponse": {
+        "properties": {
+          "continuous_sec": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 15.0,
+            "title": "Continuous Sec"
+          },
+          "stable_sec": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 15.0,
+            "title": "Stable Sec"
+          },
+          "quiet_sec": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 15.0,
+            "title": "Quiet Sec"
+          },
+          "room_id": {
+            "type": "integer",
+            "title": "Room Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "continuous_sec",
+          "stable_sec",
+          "quiet_sec",
+          "room_id"
+        ],
+        "title": "RoomRulesResponse"
       },
       "RoomStatusEnum": {
         "type": "string",

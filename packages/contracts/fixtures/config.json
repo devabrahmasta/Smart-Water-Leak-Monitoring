@@ -1,0 +1,5 @@
+{
+  "continuous_sec": 2700,
+  "stable_sec": 300,
+  "quiet_sec": 300
+}

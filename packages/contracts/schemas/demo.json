@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smartwater.timunmania.id/schemas/demo.json",
+  "title": "DemoPayload",
+  "description": "Skenario simulator Kamar 2 dari backend",
+  "type": "object",
+  "properties": {
+    "scenario": {
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "LEAK_CONTINUOUS",
+        "LEAK_STABLE",
+        "LEAK_QUIET_HOURS",
+        "OFFLINE",
+        "NO_ACK"
+      ]
+    }
+  },
+  "required": [
+    "scenario"
+  ],
+  "additionalProperties": false
+}

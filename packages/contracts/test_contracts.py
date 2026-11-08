@@ -31,6 +31,8 @@ class TestMQTTContracts(unittest.TestCase):
             "status": load_json(SCHEMAS_DIR / "status.json"),
             "cmd": load_json(SCHEMAS_DIR / "cmd.json"),
             "ack": load_json(SCHEMAS_DIR / "ack.json"),
+            "config": load_json(SCHEMAS_DIR / "config.json"),
+            "demo": load_json(SCHEMAS_DIR / "demo.json"),
         }
 
         # Pastikan seluruh skema adalah Draft7Validator yang valid
@@ -70,6 +72,17 @@ class TestMQTTContracts(unittest.TestCase):
             with self.subTest(fixture=fixture_name):
                 fixture = load_json(FIXTURES_DIR / fixture_name)
                 validate(instance=fixture, schema=self.schemas["ack"])
+
+    def test_config_and_demo_fixtures(self):
+        validate(instance=load_json(FIXTURES_DIR / "config.json"), schema=self.schemas["config"])
+        validate(instance=load_json(FIXTURES_DIR / "demo_leak_stable.json"), schema=self.schemas["demo"])
+
+    def test_config_rejects_too_short(self):
+        with self.assertRaises(ValidationError):
+            validate(
+                instance={"continuous_sec": 5, "stable_sec": 300, "quiet_sec": 300},
+                schema=self.schemas["config"],
+            )
 
     # ---------------------------------------------------------
     # Negative Tests: Memastikan pelanggaran skema tertolak
