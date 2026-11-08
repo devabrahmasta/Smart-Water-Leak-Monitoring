@@ -187,3 +187,4 @@ def get_scenario(
         valid_names = ", ".join(SCENARIO_MAP.keys())
         raise ValueError(f"Skenario tidak dikenal: '{name}'. Pilihan yang valid: {valid_names}")
     return cls(interval_sec=interval_sec, ticks_to_trigger=ticks_to_trigger)
+

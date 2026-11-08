@@ -74,3 +74,4 @@ class SimulatorState:
             self.msg_id = data.get("msg_id", self.msg_id)
         except Exception as e:
             logger.warning(f"Gagal membaca simulator state dari {self.persist_path}: {e}")
+
