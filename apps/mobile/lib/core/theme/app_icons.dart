@@ -23,4 +23,5 @@ abstract final class AppIcons {
   static const IconData clock = LucideIcons.clock;
   static const IconData water = LucideIcons.droplet;
   static const IconData room = LucideIcons.doorClosed;
+  static const IconData demo = LucideIcons.flaskConical;
 }

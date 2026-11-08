@@ -87,6 +87,8 @@ void main() {
 
     expect(find.byType(MetricTile), findsNWidgets(2));
     await tester.scrollUntilVisible(find.text('Riwayat perintah'), 300);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -200));
+    await tester.pumpAndSettle();
     expect(find.byType(CommandRow), findsWidgets);
     await tester.scrollUntilVisible(find.text('Alert terakhir'), 300);
     expect(find.byType(AlertItem), findsWidgets);

@@ -29,7 +29,7 @@ class StatusTally extends StatelessWidget {
       child: Row(
         children: [
           _Cell(value: normal, label: 'Normal'),
-          _Cell(value: closed, label: 'Valve tertutup'),
+          _Cell(value: closed, label: 'Air dimatikan'),
           _Cell(value: offline, label: 'Offline'),
         ],
       ),

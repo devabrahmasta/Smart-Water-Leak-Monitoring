@@ -89,8 +89,13 @@ class _UsageContent extends StatelessWidget {
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: MetricTile(
-                label: daily ? 'Rata rata harian' : 'Rata rata bulanan',
-                value: hasData ? formatNumber(usage.averageL.round()) : null,
+                label: daily ? 'Rata rata mingguan' : 'Rata rata bulanan',
+                // Mode harian: rata rata harian × 7.
+                value: hasData
+                    ? formatNumber(
+                        (daily ? usage.averageL * 7 : usage.averageL).round(),
+                      )
+                    : null,
               ),
             ),
           ],

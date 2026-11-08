@@ -154,7 +154,7 @@ class _AlertDetail extends StatelessWidget {
                   if (onViewRoom != null) const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: AppButton(
-                      label: 'Buka valve',
+                      label: 'Nyalakan air',
                       expand: true,
                       onPressed: onOpenValve,
                     ),

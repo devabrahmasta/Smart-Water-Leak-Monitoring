@@ -17,10 +17,12 @@ class ScreenHeader extends StatelessWidget {
     required String this.subtitle,
     required VoidCallback this.onBell,
     this.bellBadge = false,
+    this.onDemo,
   }) : onBack = null;
 
   const ScreenHeader.title({super.key, required this.title, this.subtitle})
     : onBell = null,
+      onDemo = null,
       bellBadge = false,
       onBack = null;
 
@@ -30,6 +32,7 @@ class ScreenHeader extends StatelessWidget {
     required VoidCallback this.onBack,
   }) : subtitle = null,
        onBell = null,
+       onDemo = null,
        bellBadge = false;
 
   final String title;
@@ -37,6 +40,9 @@ class ScreenHeader extends StatelessWidget {
   final VoidCallback? onBell;
   final bool bellBadge;
   final VoidCallback? onBack;
+
+  /// Tombol Mode demo di samping lonceng (Beranda).
+  final VoidCallback? onDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +103,15 @@ class ScreenHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (onDemo != null) ...[
+            const SizedBox(width: AppSpacing.md),
+            AppIconButton(
+              icon: AppIcons.demo,
+              onPressed: onDemo,
+              background: AppColors.bg,
+              semanticLabel: 'Mode demo',
+            ),
+          ],
           if (onBell != null) ...[
             const SizedBox(width: AppSpacing.md),
             AppIconButton(

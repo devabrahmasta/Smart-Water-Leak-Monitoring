@@ -32,9 +32,9 @@ class RoomCardView extends ConsumerWidget {
     final ValveSwitchState switchState;
     if (pending != null) {
       panel = (
-        title: 'Menunggu perangkat',
+        title: 'Menunggu alat',
         subtitle:
-            'Perintah ${pending == CommandAction.open ? 'buka' : 'tutup'} dikirim',
+            'Perintah ${pending == CommandAction.open ? 'nyalakan' : 'matikan'} dikirim',
       );
       switchState = ValveSwitchState.pending;
     } else if (serverDown && room.status != RoomStatus.offline) {
@@ -57,6 +57,7 @@ class RoomCardView extends ConsumerWidget {
       status: roomCardStatus(room.status),
       todayLiters: room.todayL,
       flowLpm: room.flowLpm,
+      summary: roomSummary(room),
       isHighest: room.isHighest,
       valveTitle: panel.title,
       valveSubtitle: panel.subtitle,

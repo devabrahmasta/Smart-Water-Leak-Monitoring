@@ -14,7 +14,7 @@ import '../router/app_router.dart';
 /// Backend mengirim pesan FCM bertipe `data`, jadi aplikasi sendiri yang
 /// menampilkan notifikasi lewat flutter_local_notifications, baik saat
 /// aplikasi terbuka maupun di latar belakang. Mengetuk notifikasi membuka
-/// `/notifikasi?alert=<alert_id>`.
+/// Detail Kamar yang bersangkutan (lihat [pushRoute]).
 ///
 /// Firebase dikonfigurasi lewat `--dart-define` (lihat [firebaseOptions]),
 /// tanpa `google-services.json`. Bila tidak diisi, push dimatikan dan
@@ -60,6 +60,15 @@ Future<void> _initLocal({void Function(String? payload)? onTap}) async {
       ?.createNotificationChannel(_channel);
 }
 
+/// Tujuan saat notifikasi diketuk: Detail Kamar lewat tab Beranda, supaya
+/// pemilik langsung melihat penjelasan dan langkah penanganan. Tanpa
+/// `room_id` yang valid, jatuh ke sheet detail alert di tab Notifikasi.
+String pushRoute(Map<String, dynamic> data) {
+  final roomId = int.tryParse('${data['room_id']}');
+  if (roomId != null) return AppRoutes.homeRoom(roomId);
+  return '${AppRoutes.alerts}?alert=${data['alert_id']}';
+}
+
 /// Tampilkan notifikasi dari payload FCM `data` (semua nilai string).
 Future<void> _showFromData(Map<String, dynamic> data) async {
   final type = data['type'];
@@ -69,7 +78,7 @@ Future<void> _showFromData(Map<String, dynamic> data) async {
     id: alertId,
     title: data['title'] as String?,
     body: data['body'] as String?,
-    payload: '${data['alert_id']}',
+    payload: pushRoute(data),
     notificationDetails: NotificationDetails(
       android: AndroidNotificationDetails(
         _channel.id,
@@ -80,6 +89,25 @@ Future<void> _showFromData(Map<String, dynamic> data) async {
       ),
     ),
   );
+}
+
+/// Mode demo: notifikasi kebocoran lokal dengan isi sama seperti push
+/// backend (CONTRACT.md 4.2), muncul setelah [delay] supaya pengguna sempat
+/// keluar dari aplikasi. Mengetuknya membuka Detail Kamar [roomId].
+Future<void> showDemoLeakNotification({
+  required int alertId,
+  required int roomId,
+  required String roomName,
+  Duration delay = const Duration(seconds: 5),
+}) async {
+  await Future<void>.delayed(delay);
+  await _showFromData({
+    'type': 'LEAK',
+    'alert_id': '$alertId',
+    'room_id': '$roomId',
+    'title': 'Kebocoran terdeteksi',
+    'body': '$roomName: aliran stabil terdeteksi. Valve sudah ditutup.',
+  });
 }
 
 /// Handler pesan saat aplikasi di latar belakang atau tertutup.
@@ -125,20 +153,19 @@ class PushService {
 
   final ProviderContainer _container;
 
-  void _openAlert(String? payload) {
-    final id = int.tryParse(payload ?? '');
-    if (id == null) return;
-    _container.read(routerProvider).go('${AppRoutes.alerts}?alert=$id');
+  void _openFromNotification(String? route) {
+    if (route == null || route.isEmpty) return;
+    _container.read(routerProvider).go(route);
   }
 
   Future<void> start() async {
     try {
-      await _initLocal(onTap: _openAlert);
+      await _initLocal(onTap: _openFromNotification);
 
       // Aplikasi dibuka dari notifikasi saat tertutup.
       final launch = await _plugin.getNotificationAppLaunchDetails();
       if (launch?.didNotificationLaunchApp ?? false) {
-        _openAlert(launch!.notificationResponse?.payload);
+        _openFromNotification(launch!.notificationResponse?.payload);
       }
 
       // Minta izin saat pertama dibuka (US-20). Android hanya bertanya

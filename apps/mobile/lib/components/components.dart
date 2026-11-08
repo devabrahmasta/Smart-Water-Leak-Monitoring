@@ -11,6 +11,7 @@ export 'bottom_nav.dart';
 export 'command_row.dart';
 export 'confirm_sheet.dart';
 export 'empty_state.dart';
+export 'leak_guide_card.dart';
 export 'metric_tile.dart';
 export 'room_card.dart';
 export 'room_compare.dart';

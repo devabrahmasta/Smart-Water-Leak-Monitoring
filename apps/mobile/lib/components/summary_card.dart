@@ -12,6 +12,7 @@ import 'pressable.dart';
 
 /// Figma: Components / Summary Card (US-01). Kartu `primary`: total hari ini
 /// (Display), total bulan ini, 7 bar mini harian (bar terakhir = hari ini).
+/// Selama ada kebocoran yang belum selesai ([leak]), kartu memakai `danger`.
 class SummaryCard extends StatelessWidget {
   const SummaryCard({
     super.key,
@@ -19,7 +20,10 @@ class SummaryCard extends StatelessWidget {
     required this.monthLiters,
     required this.last7DaysLiters,
     required this.onSeeChart,
+    this.leak = false,
   });
+
+  final bool leak;
 
   final double todayLiters;
   final double monthLiters;
@@ -32,7 +36,7 @@ class SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     const onPrimary = AppColors.onPrimary;
     return CardSurface(
-      color: AppColors.primary,
+      color: leak ? AppColors.danger : AppColors.primary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

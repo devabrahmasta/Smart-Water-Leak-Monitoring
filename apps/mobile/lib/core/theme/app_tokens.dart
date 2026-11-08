@@ -58,18 +58,24 @@ abstract final class AppSizes {
   static const pressDuration = Duration(milliseconds: 150);
 }
 
-/// Gradien biru di belakang header Beranda (satu-satunya gradien yang boleh).
+/// Gradien di belakang header (DESIGN.md 7.3):
+/// - [homeHeader] biru di Beranda saat semua aman.
+/// - [leakHeader] merah di Beranda dan Detail Kamar selama ada kebocoran
+///   yang belum selesai.
 abstract final class AppGradients {
   static const double homeHeaderHeight = 340;
 
-  static final homeHeader = LinearGradient(
+  static LinearGradient _fade(Color c) => LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     stops: const [0, 0.45, 1],
     colors: [
-      AppColors.primary.withValues(alpha: 0.55),
-      AppColors.primary.withValues(alpha: 0.16),
-      AppColors.primary.withValues(alpha: 0),
+      c.withValues(alpha: 0.55),
+      c.withValues(alpha: 0.16),
+      c.withValues(alpha: 0),
     ],
   );
+
+  static final homeHeader = _fade(AppColors.primary);
+  static final leakHeader = _fade(AppColors.danger);
 }

@@ -108,19 +108,22 @@ Setiap komponen dibuat sebagai Figma component dengan variant. Layar hanya boleh
 
 Aturan status kamar:
 1. Normal: kartu `surface`, chip Normal (`primary-soft`).
-2. Bocor: kartu `surface`, chip Bocor (`danger-soft` + ikon peringatan), valve otomatis off.
+2. Bocor: kartu `danger-soft`, chip Bocor (`danger` + teks `on-primary` + ikon peringatan), kalimat ringkasan `danger-text`, valve otomatis off.
 3. Valve tertutup manual: kartu `ink`, teks `on-dark`. Ini satu-satunya kartu gelap, jadi kamar yang airnya mati langsung kelihatan.
 4. Offline: angka diganti "Tidak ada data", saklar disabled, chip Offline (`surface-strong`).
+5. Semua Room Card punya satu kalimat ringkasan dalam bahasa sehari-hari di bawah nama kamar.
 
 ## 7. Isi layar
 
-Beranda: Header, Summary Card (link Lihat grafik), Alert Banner (hanya kalau ada alert aktif), Status Tally, "Perlu dicek" berisi Room Card yang Bocor, Tertutup, atau Offline. Kalau kosong, Empty State.
+Beranda: Header (tombol Mode demo + lonceng), Summary Card (link Lihat grafik; `danger` selama ada kebocoran yang belum selesai), Alert Banner (hanya kalau ada alert aktif), Status Tally, "Perlu dicek" berisi Room Card yang Bocor, Tertutup, atau Offline. Kalau kosong, Empty State.
 
-Detail Grafik (dari Beranda): Header sub, Segmented Harian/Bulanan, Usage Chart Card, 2 Metric Tile (total, rata rata), Room Compare.
+Detail Grafik (dari Beranda): Header sub, Segmented Harian/Bulanan, Usage Chart Card, 2 Metric Tile (total, rata rata mingguan atau bulanan), Room Compare.
 
 Kamar: Header, Segmented Semua/Perlu dicek/Offline, satu Room Card per kamar. Tap kartu ke Detail Kamar.
 
-Detail Kamar: Header sub, Room Card, 2 Metric Tile (bulan ini, rata rata harian), Usage Chart Card kamar ini, Command Row, Alert Item terakhir. Kontrol valve lewat saklar di Room Card, lalu Confirm Sheet.
+Detail Kamar: Header sub, Room Card, Leak Guide Card (hanya saat bocor: kenapa terdeteksi bocor, yang sebaiknya dilakukan, tombol nyalakan air), 2 Metric Tile (bulan ini, rata rata mingguan = harian × 7), Usage Chart Card kamar ini, Command Row, Alert Item terakhir. Kontrol valve lewat saklar di Room Card, lalu Confirm Sheet.
+
+Mode demo (dari Beranda): Header sub, pilihan keadaan kamar (data mock), tombol kirim notifikasi bocor lokal.
 
 Notifikasi: Header, Segmented Semua/Aktif/Selesai, daftar Alert Item. Detail alert dibuka sebagai sheet berisi aturan yang terpicu dan tombol Buka valve.
 
@@ -128,7 +131,7 @@ Notifikasi: Header, Segmented Semua/Aktif/Selesai, daftar Alert Item. Detail ale
 
 1. Border, outline, dan garis pembagi dalam bentuk apa pun.
 2. Radius selain 24, pil, dan lingkaran.
-3. Gradien, glassmorphism, dan glow. Satu pengecualian: Beranda punya gradien biru di belakang header (primary 55% di atas, 16% di 45%, 0% di bawah, tinggi 340). Layar lain tetap polos.
+3. Gradien, glassmorphism, dan glow. Pengecualian: gradien di belakang header (55% di atas, 16% di 45%, 0% di bawah, tinggi 340). Biru (`primary`) di Beranda saat aman. Merah (`danger`) di Beranda selama ada kebocoran yang belum selesai, dan di Detail Kamar yang bocor. Layar lain tetap polos.
 4. Emoji sebagai ikon.
 5. Teks di atas biru yang lebih kecil dari 13 px atau lebih tipis dari SemiBold.
 6. Bayangan pada kartu biasa.

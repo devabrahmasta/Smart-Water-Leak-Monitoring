@@ -28,11 +28,14 @@ class HomePage extends ConsumerWidget {
     final summary = ref.watch(summaryProvider);
     final rooms = ref.watch(roomsProvider);
     final openCount = ref.watch(openAlertCountProvider);
+    final leak = ref.watch(activeLeakProvider);
 
     return ScreenBody(
       background: Container(
         height: AppGradients.homeHeaderHeight,
-        decoration: BoxDecoration(gradient: AppGradients.homeHeader),
+        decoration: BoxDecoration(
+          gradient: leak ? AppGradients.leakHeader : AppGradients.homeHeader,
+        ),
       ),
       onRefresh: () async {
         ref.invalidate(roomsProvider);
@@ -44,6 +47,7 @@ class HomePage extends ConsumerWidget {
           subtitle: '${Env.propertyName} · ${formatDayDate(DateTime.now())}',
           bellBadge: openCount > 0,
           onBell: () => context.go(AppRoutes.alerts),
+          onDemo: () => context.go(AppRoutes.demo),
         ),
         const _NotificationOffBanner(),
         const SizedBox(height: AppSpacing.xxl),
@@ -91,6 +95,7 @@ class _SummaryGroup extends ConsumerWidget {
           todayLiters: summary.todayL,
           monthLiters: summary.monthL,
           last7DaysLiters: summary.last7DaysL,
+          leak: ref.watch(activeLeakProvider),
           onSeeChart: () => context.go(AppRoutes.usage),
         ),
         if (latest != null) ...[
@@ -105,7 +110,7 @@ class _SummaryGroup extends ConsumerWidget {
             subtitle: summary.openAlertCount > 1
                 ? '${latest.roomName} · +${summary.openAlertCount - 1} lainnya'
                 : latest.type == AlertType.leak
-                ? 'Valve ditutup otomatis · ${formatClock(latest.createdAt)}'
+                ? 'Air dihentikan otomatis · ${formatClock(latest.createdAt)}'
                 : '${latest.roomName} · ${formatClock(latest.createdAt)}',
             onView: () => openAlertById(
               context,

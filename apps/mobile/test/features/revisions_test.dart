@@ -51,7 +51,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Riwayat perintah'), 300);
     await tester.scrollUntilVisible(find.text('Alert terakhir'), 300);
-    await tester.scrollUntilVisible(find.byType(AlertItem).last, 200);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(AlertItem).last);
     await tester.pumpAndSettle();
     expect(find.text('Lihat kamar'), findsNothing);
