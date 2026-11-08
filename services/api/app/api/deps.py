@@ -60,13 +60,13 @@ class RealMQTTPublisher:
                 logger.error(f"Gagal menghubungkan MQTT publisher ke broker: {e}")
         return self._client
 
-    def publish(self, topic: str, payload: dict, qos: int = 1) -> bool:
+    def publish(self, topic: str, payload: dict, qos: int = 1, retain: bool = False) -> bool:
         client = self._get_client()
         if not client:
             return False
         try:
             payload_bytes = json.dumps(payload).encode("utf-8")
-            client.publish(topic, payload_bytes, qos=qos)
+            client.publish(topic, payload_bytes, qos=qos, retain=retain)
             return True
         except Exception as e:
             logger.error(f"Gagal publish ke {topic}: {e}")

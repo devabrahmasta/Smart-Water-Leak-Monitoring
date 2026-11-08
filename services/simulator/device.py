@@ -18,6 +18,22 @@ from services.simulator.scenarios import BaseScenario, get_scenario
 
 logger = logging.getLogger(__name__)
 
+# Topik demo memakai enum kontrak, simulator memakai nama skenario.
+DEMO_SCENARIOS = {
+    "NORMAL": "normal",
+    "LEAK_CONTINUOUS": "leak-continuous",
+    "LEAK_STABLE": "leak-stable",
+    "LEAK_QUIET_HOURS": "quiet-hours",
+    "OFFLINE": "offline",
+    "NO_ACK": "no-ack",
+}
+
+RULE_KEY_BY_SCENARIO = {
+    "leak-continuous": "continuous_sec",
+    "leak-stable": "stable_sec",
+    "quiet-hours": "quiet_sec",
+}
+
 
 def _now_iso_utc() -> str:
     """Mengembalikan waktu saat ini dalam format ISO 8601 UTC."""
@@ -44,10 +60,42 @@ class SimulatedDevice:
         self.scenario: BaseScenario = get_scenario(scenario_name, interval_sec, ticks_to_trigger)
         self.last_alert: Optional[Dict[str, Any]] = None
         self.mqtt_client: Optional[mqtt.Client] = None
+        # True bila pemicu dipercepat (--accel atau Mode demo): config tidak mengubahnya.
+        self.accelerated = ticks_to_trigger is not None
+        self.rule_config: Dict[str, int] = {}
 
     def set_scenario(self, name: str, ticks_to_trigger: Optional[int] = None) -> None:
         """Mengganti skenario aktif pada simulator."""
-        self.scenario = get_scenario(name, self.interval_sec, ticks_to_trigger)
+        self.accelerated = ticks_to_trigger is not None
+        ticks = ticks_to_trigger or self._ticks_from_config(name)
+        self.scenario = get_scenario(name, self.interval_sec, ticks)
+
+    def _ticks_from_config(self, name: str) -> Optional[int]:
+        """Jumlah tick pemicu dari config kamar (CONTRACT.md 2.10), bila ada."""
+        key = RULE_KEY_BY_SCENARIO.get(name)
+        if not key or key not in self.rule_config:
+            return None
+        return max(1, int(self.rule_config[key] / self.interval_sec))
+
+    def apply_config(self, payload: Dict[str, Any]) -> None:
+        """Menerapkan ambang dari topik config ke skenario aktif."""
+        self.rule_config = {
+            key: int(payload[key]) for key in RULE_KEY_BY_SCENARIO.values() if key in payload
+        }
+        ticks = self._ticks_from_config(self.scenario.name)
+        if ticks and not self.accelerated:
+            self.scenario.ticks_to_trigger = ticks
+        logger.info(f"Config kamar diterapkan: {self.rule_config}")
+
+    def apply_demo(self, payload: Dict[str, Any]) -> None:
+        """Skenario dari Mode demo: valve dibuka, pemicu dalam 1 siklus telemetri."""
+        name = DEMO_SCENARIOS.get(payload.get("scenario"))
+        if not name:
+            logger.warning(f"Skenario demo tidak dikenal: {payload}")
+            return
+        self.state.set_valve("OPEN")
+        self.set_scenario(name, ticks_to_trigger=1)
+        logger.info(f"Skenario demo aktif: {name}")
         self.last_alert = None
         logger.info(f"Skenario simulator diatur ke: '{name}'")
 
@@ -190,23 +238,31 @@ class SimulatedDevice:
             logger.warning(f"CA cert tidak ditemukan di {ca_path}!")
 
         cmd_topic = f"swm/{self.state.device_id}/cmd"
+        config_topic = f"swm/{self.state.device_id}/config"
+        demo_topic = f"swm/{self.state.device_id}/demo"
 
         def on_connect(client_instance, userdata, flags, reason_code, properties):
             if reason_code == 0:
                 logger.info(f"Simulator terhubung ke broker. Berlangganan topik perintah: {cmd_topic}")
-                client_instance.subscribe(cmd_topic, qos=1)
+                client_instance.subscribe(
+                    [(cmd_topic, 1), (config_topic, 1), (demo_topic, 1)]
+                )
                 # Kirim status BOOT saat pertama kali terhubung
                 self.boot()
             else:
                 logger.error(f"Gagal terhubung ke broker: reason_code={reason_code}")
 
         def on_message(client_instance, userdata, message):
-            if message.topic == cmd_topic:
-                try:
-                    payload = json.loads(message.payload.decode("utf-8"))
+            try:
+                payload = json.loads(message.payload.decode("utf-8"))
+                if message.topic == cmd_topic:
                     self.handle_command(payload)
-                except Exception as e:
-                    logger.error(f"Gagal memproses pesan perintah: {e}")
+                elif message.topic == config_topic:
+                    self.apply_config(payload)
+                elif message.topic == demo_topic:
+                    self.apply_demo(payload)
+            except Exception as e:
+                logger.error(f"Gagal memproses pesan {message.topic}: {e}")
 
         client.on_connect = on_connect
         client.on_message = on_message

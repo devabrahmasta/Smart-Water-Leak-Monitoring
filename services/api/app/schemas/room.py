@@ -4,7 +4,7 @@ Pydantic Schemas untuk Room dan Detail Kamar (R-07).
 
 from enum import Enum
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.alert import AlertDetailResponse
 from app.schemas.command import ValveCommandDetailResponse
@@ -43,3 +43,28 @@ class RoomDetailResponse(BaseModel):
 
 class RoomCommandsResponse(BaseModel):
     commands: List[ValveCommandDetailResponse] = []
+
+
+class RoomRulesBody(BaseModel):
+    """Durasi aturan kebocoran dalam detik (CONTRACT.md 2.10)."""
+
+    continuous_sec: int = Field(ge=15, le=86400)
+    stable_sec: int = Field(ge=15, le=86400)
+    quiet_sec: int = Field(ge=15, le=86400)
+
+
+class RoomRulesResponse(RoomRulesBody):
+    room_id: int
+
+
+class DemoScenarioEnum(str, Enum):
+    NORMAL = "NORMAL"
+    LEAK_CONTINUOUS = "LEAK_CONTINUOUS"
+    LEAK_STABLE = "LEAK_STABLE"
+    LEAK_QUIET_HOURS = "LEAK_QUIET_HOURS"
+    OFFLINE = "OFFLINE"
+    NO_ACK = "NO_ACK"
+
+
+class DemoScenarioBody(BaseModel):
+    scenario: DemoScenarioEnum

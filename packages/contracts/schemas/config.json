@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smartwater.timunmania.id/schemas/config.json",
+  "title": "ConfigPayload",
+  "description": "Durasi aturan kebocoran per kamar dari backend ke perangkat (retained)",
+  "type": "object",
+  "properties": {
+    "continuous_sec": {
+      "type": "integer",
+      "minimum": 15,
+      "maximum": 86400,
+      "description": "Aturan aliran terus menerus, detik"
+    },
+    "stable_sec": {
+      "type": "integer",
+      "minimum": 15,
+      "maximum": 86400,
+      "description": "Aturan aliran stabil, detik"
+    },
+    "quiet_sec": {
+      "type": "integer",
+      "minimum": 15,
+      "maximum": 86400,
+      "description": "Aturan aliran jam sepi, detik"
+    }
+  },
+  "required": [
+    "continuous_sec",
+    "stable_sec",
+    "quiet_sec"
+  ],
+  "additionalProperties": false
+}

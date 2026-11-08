@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.api.deps import get_db, verify_owner_token
+from app.api.deps import get_db, verify_owner_token, get_mqtt_publisher
 from app.api.v1.helpers import (
     get_all_rooms_metrics,
     get_current_wib_date,
@@ -21,13 +21,19 @@ from app.api.v1.helpers import (
 )
 from app.models.room import Room
 from app.models.usage import DailyUsage, MonthlyUsage
-from app.models.alert import Alert
+from app.models.alert import Alert, AlertType, AlertStatus, AlertResolvedBy
+from app.models.device import ValveState
+from app.models.room_rule import RoomRule
+from app.models.rule_param import RuleParam
 from app.models.command import ValveCommand
 from app.schemas.room import (
     RoomListResponse,
     RoomDetailResponse,
     RoomCommandsResponse,
     RoomStatusEnum,
+    RoomRulesBody,
+    RoomRulesResponse,
+    DemoScenarioBody,
 )
 from app.schemas.alert import AlertDetailResponse
 from app.schemas.command import ValveCommandDetailResponse
@@ -205,3 +211,122 @@ def get_room_usage(
     """Alias langsung ke router /v1/usage dengan parameter room_id."""
     from app.api.v1.usage import fetch_usage_data
     return fetch_usage_data(db=db, period=period, room_id=room_id)
+
+
+def _get_room_or_404(db: Session, room_id: int) -> Room:
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": f"Kamar dengan ID {room_id} tidak ditemukan"},
+        )
+    return room
+
+
+def _default_sec(db: Session, key: str, fallback_min: int) -> int:
+    """Nilai bawaan dari rule_params (menit), dikonversi ke detik."""
+    param = db.query(RuleParam).filter(RuleParam.key == key).first()
+    return (param.as_int() if param else fallback_min) * 60
+
+
+def _rules_response(db: Session, room_id: int) -> RoomRulesResponse:
+    rule = db.query(RoomRule).filter(RoomRule.room_id == room_id).first()
+    if rule:
+        return RoomRulesResponse(
+            room_id=room_id,
+            continuous_sec=rule.continuous_sec,
+            stable_sec=rule.stable_sec,
+            quiet_sec=rule.quiet_sec,
+        )
+    return RoomRulesResponse(
+        room_id=room_id,
+        continuous_sec=_default_sec(db, "leak_duration_min", 45),
+        stable_sec=_default_sec(db, "stable_duration_min", 5),
+        quiet_sec=_default_sec(db, "night_duration_min", 5),
+    )
+
+
+@router.get(
+    "/{room_id}/rules",
+    response_model=RoomRulesResponse,
+    dependencies=[Depends(verify_owner_token)],
+    summary="Ambang aturan kebocoran satu kamar",
+)
+def get_room_rules(room_id: int, db: Session = Depends(get_db)):
+    _get_room_or_404(db, room_id)
+    return _rules_response(db, room_id)
+
+
+@router.put(
+    "/{room_id}/rules",
+    response_model=RoomRulesResponse,
+    dependencies=[Depends(verify_owner_token)],
+    summary="Ubah ambang kamar dan kirim config retained ke perangkat",
+)
+def update_room_rules(
+    room_id: int,
+    body: RoomRulesBody,
+    db: Session = Depends(get_db),
+    mqtt_publisher=Depends(get_mqtt_publisher),
+):
+    room = _get_room_or_404(db, room_id)
+    rule = db.query(RoomRule).filter(RoomRule.room_id == room_id).first()
+    if rule is None:
+        rule = RoomRule(room_id=room_id, **body.model_dump())
+        db.add(rule)
+    else:
+        rule.continuous_sec = body.continuous_sec
+        rule.stable_sec = body.stable_sec
+        rule.quiet_sec = body.quiet_sec
+    db.commit()
+
+    if room.device:
+        mqtt_publisher.publish(
+            f"swm/{room.device.id}/config", body.model_dump(), qos=1, retain=True
+        )
+    return _rules_response(db, room_id)
+
+
+@router.post(
+    "/{room_id}/demo-scenario",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(verify_owner_token)],
+    summary="Pilih skenario simulator. Kamar nyata ditolak.",
+)
+def set_demo_scenario(
+    room_id: int,
+    body: DemoScenarioBody,
+    db: Session = Depends(get_db),
+    mqtt_publisher=Depends(get_mqtt_publisher),
+):
+    room = _get_room_or_404(db, room_id)
+    if not room.is_simulated:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "NOT_SIMULATED", "message": f"{room.name} memakai alat asli"},
+        )
+
+    # Skenario baru mulai dari keadaan bersih: alert lama selesai, valve terbuka.
+    now_utc = datetime.now(timezone.utc)
+    open_leaks = (
+        db.query(Alert)
+        .filter(
+            Alert.room_id == room_id,
+            Alert.type == AlertType.LEAK,
+            Alert.status == AlertStatus.OPEN,
+        )
+        .all()
+    )
+    for alert in open_leaks:
+        alert.status = AlertStatus.RESOLVED
+        alert.resolved_by = AlertResolvedBy.APP
+        alert.resolved_at = now_utc
+    if room.device:
+        room.device.valve_state = ValveState.OPEN
+    db.commit()
+
+    if room.device:
+        mqtt_publisher.publish(
+            f"swm/{room.device.id}/demo", {"scenario": body.scenario.value}, qos=1
+        )
+    return {"scenario": body.scenario.value}

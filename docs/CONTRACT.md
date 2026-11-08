@@ -34,6 +34,8 @@ Broker Mosquitto, TLS port 8883, QoS 1, payload JSON UTF-8. Satu akun per perang
 | `status` | ESP32 ke broker | Saat valve berubah karena tombol fisik, dan sekali saat boot |
 | `cmd` | broker ke ESP32 | Saat pemilik menekan buka/tutup di aplikasi |
 | `ack` | ESP32 ke broker | Setelah perintah dieksekusi |
+| `config` | broker ke ESP32 | Saat ambang kamar diubah di aplikasi. Pesan *retained*, jadi diterima lagi saat perangkat tersambung |
+| `demo` | broker ke simulator | Saat skenario Kamar 2 dipilih di Mode demo. Hanya simulator yang berlangganan |
 
 ```json
 // telemetry
@@ -61,7 +63,17 @@ Aturan:
 6. Setelah reboot, perangkat memulihkan status valve terakhir dari NVS lalu mengirim `status` dengan `source: BOOT`.
 7. *Backend* menganggap `FAILED` bila `ack` tidak datang dalam 15 detik.
 8. Perangkat dianggap offline bila tidak ada pesan selama 30 detik (**Usulan**, 3 kali interval telemetri).
-9. Aturan di perangkat: aliran terus menerus 45 menit, aliran stabil ±10% selama 5 menit, aliran di atas 1,0 L/menit selama 5 menit pada jam sepi. Aturan anomali 1,5 kali rata-rata ada di *backend*, bukan di perangkat.
+9. Aturan di perangkat, nilai bawaan: aliran terus menerus 45 menit, aliran stabil ±10% selama 5 menit, aliran di atas 1,0 L/menit selama 5 menit pada jam sepi. Aturan anomali 1,5 kali rata-rata ada di *backend*, bukan di perangkat.
+10. Ketiga durasi aturan bisa diubah per kamar lewat `config`. Perangkat menyimpannya di NVS dan langsung memakainya. Nilai dalam detik, 15 sampai 86400. Perangkat tidak mengirim konfirmasi.
+11. `demo` hanya untuk simulator Kamar 2. Saat diterima, simulator membuka valve lalu menjalankan skenario itu dengan pemicu dipercepat (1 siklus telemetri). Perangkat nyata tidak berlangganan topik ini.
+
+```json
+// config
+{ "continuous_sec": 2700, "stable_sec": 300, "quiet_sec": 300 }
+
+// demo (scenario: NORMAL, LEAK_CONTINUOUS, LEAK_STABLE, LEAK_QUIET_HOURS, OFFLINE, atau NO_ACK)
+{ "scenario": "LEAK_STABLE" }
+```
 
 ## 3. Mobile dan Backend (HTTPS REST)
 
@@ -80,6 +92,9 @@ Basis URL dan token diberikan lewat `--dart-define` (`API_BASE_URL`, `API_TOKEN`
 | `POST /v1/rooms/{id}/valve` | Kirim perintah buka/tutup | Confirm Sheet |
 | `GET /v1/commands/{id}` | Status satu perintah | Saklar Pending |
 | `POST /v1/push-tokens` | Daftarkan token FCM | Saat aplikasi dibuka |
+| `GET /v1/rooms/{id}/rules` | Ambang aturan kamar | Detail Kamar |
+| `PUT /v1/rooms/{id}/rules` | Ubah ambang kamar, lalu kirim `config` ke perangkat | Detail Kamar |
+| `POST /v1/rooms/{id}/demo-scenario` | Pilih skenario simulator. Kamar nyata ditolak `NOT_SIMULATED`. Alert LEAK aktif kamar itu ditandai selesai | Mode demo |
 
 Enum:
 1. Status kamar: `NORMAL`, `LEAK`, `CLOSED`, `OFFLINE`.
@@ -147,6 +162,7 @@ Format galat (semua *endpoint*):
 | `NOT_FOUND` | 404 | Kamar, alert, atau perintah tidak ada |
 | `DEVICE_OFFLINE` | 409 | Perintah ditolak karena perangkat offline |
 | `COMMAND_IN_PROGRESS` | 409 | Masih ada perintah `PENDING` di kamar itu |
+| `NOT_SIMULATED` | 409 | Skenario demo hanya untuk kamar simulator |
 | `INVALID_PAYLOAD` | 422 | Isi permintaan tidak valid |
 
 ## 4. Push FCM
@@ -158,7 +174,7 @@ Dikirim *backend* ke token yang terdaftar. Payload bertipe `data` sehingga aplik
 ```
 
 1. `type` bernilai `LEAK` atau `ANOMALY`. Isi `data` selalu string.
-2. Mengetuk notifikasi membuka sheet detail alert dengan `alert_id`.
+2. Mengetuk notifikasi membuka Detail Kamar dengan `room_id`.
 3. Alert `ACTIVITY` (tombol fisik) tidak dikirim push, hanya muncul di daftar Notifikasi (**Usulan**).
 
 ## 5. Berkas dan riwayat versi
@@ -168,6 +184,7 @@ Berkas di `packages/contracts`: `openapi.json`, `mqtt-device.md`, `schemas/*.jso
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 2026-11-07 | Draft pertama |
+| 1.1 | 2026-11-08 | Ambang per kamar (`rules`, `config`), skenario simulator dari aplikasi (`demo-scenario`, `demo`), notifikasi membuka Detail Kamar |
 
 ## 6. Pertanyaan terbuka
 
