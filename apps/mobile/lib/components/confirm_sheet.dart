@@ -114,6 +114,8 @@ Future<bool> showConfirmSheet(
   final result = await showModalBottomSheet<bool>(
     context: context,
     useRootNavigator: true,
+    // Boleh lebih tinggi dari setengah layar saat teks diperbesar.
+    isScrollControlled: true,
     backgroundColor: Colors.transparent,
     elevation: 0,
     barrierColor: AppColors.ink.withValues(alpha: 0.4),
@@ -124,13 +126,15 @@ Future<bool> showConfirmSheet(
         AppSpacing.gutter,
         AppSpacing.xxl,
       ),
-      child: ConfirmSheet(
-        action: action,
-        title: title,
-        message: message,
-        confirmLabel: confirmLabel,
-        onConfirm: () => Navigator.of(context).pop(true),
-        onCancel: () => Navigator.of(context).pop(false),
+      child: SingleChildScrollView(
+        child: ConfirmSheet(
+          action: action,
+          title: title,
+          message: message,
+          confirmLabel: confirmLabel,
+          onConfirm: () => Navigator.of(context).pop(true),
+          onCancel: () => Navigator.of(context).pop(false),
+        ),
       ),
     ),
   );

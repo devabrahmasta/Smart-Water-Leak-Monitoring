@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Token bg dari docs/DESIGN.md. Layar pembuka sama dengan latar app. -->
+    <color name="sw_bg">#FFFCF6</color>
+</resources>

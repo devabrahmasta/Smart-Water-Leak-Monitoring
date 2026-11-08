@@ -19,34 +19,39 @@ class AppToast extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final success = type == ToastType.success;
-    return Semantics(
-      liveRegion: true,
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        decoration: const BoxDecoration(
-          color: AppColors.ink,
-          borderRadius: AppRadius.pillAll,
-          boxShadow: AppShadows.float,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              success ? AppIcons.success : AppIcons.close,
-              size: 18,
-              color: success ? AppColors.primary : AppColors.danger,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Flexible(
-              child: Text(
-                message,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.label.copyWith(color: AppColors.onDark),
+    // Toast tampil di Overlay, di luar Scaffold/Material. Tanpa Material,
+    // Text memakai gaya default debug (garis bawah kuning ganda).
+    return Material(
+      type: MaterialType.transparency,
+      child: Semantics(
+        liveRegion: true,
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          decoration: const BoxDecoration(
+            color: AppColors.ink,
+            borderRadius: AppRadius.pillAll,
+            boxShadow: AppShadows.float,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                success ? AppIcons.success : AppIcons.close,
+                size: 18,
+                color: success ? AppColors.primary : AppColors.danger,
               ),
-            ),
-          ],
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(
+                child: Text(
+                  message,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.label.copyWith(color: AppColors.onDark),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
