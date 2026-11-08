@@ -1,0 +1,31 @@
+{
+  "room": {
+    "id": 1,
+    "name": "Kamar 1",
+    "status": "NORMAL",
+    "valve": "OPEN",
+    "today_l": 182.4,
+    "flow_lpm": 6.4,
+    "is_highest": true,
+    "last_seen_at": "2026-11-07T07:21:30Z"
+  },
+  "month_l": 2410.0,
+  "avg_daily_l": 80.3,
+  "recent_alerts": [
+    {
+      "id": 31,
+      "room_id": 1,
+      "room_name": "Kamar 1",
+      "type": "LEAK",
+      "rule": "CONTINUOUS",
+      "status": "OPEN",
+      "created_at": "2026-11-07T07:22:00Z",
+      "resolved_at": null,
+      "resolved_by": null,
+      "detail": {
+        "flow_lpm": 6.4,
+        "duration_min": 45
+      }
+    }
+  ]
+}

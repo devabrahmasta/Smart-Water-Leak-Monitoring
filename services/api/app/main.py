@@ -2,17 +2,44 @@
 FastAPI Main Application untuk Smart Water Leak Monitoring System.
 """
 
+from contextlib import asynccontextmanager
+import logging
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError, HTTPException
 
+from app.config import settings
+from app.jobs.scheduler import start_scheduler, stop_scheduler
 from app.api.v1.commands import router as commands_router
+from app.api.v1.summary import router as summary_router
+from app.api.v1.rooms import router as rooms_router
+from app.api.v1.usage import router as usage_router
+from app.api.v1.alerts import router as alerts_router
+from app.api.v1.notifications import router as notifications_router
+
+logger = logging.getLogger("main")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager untuk inisialisasi background scheduler."""
+    if settings.ENABLE_SCHEDULER:
+        logger.info("Memulai APScheduler via FastAPI lifespan...")
+        start_scheduler()
+    else:
+        logger.info("APScheduler dinonaktifkan via ENABLE_SCHEDULER=False.")
+    yield
+    if settings.ENABLE_SCHEDULER:
+        logger.info("Menghentikan APScheduler via FastAPI lifespan...")
+        stop_scheduler()
+
 
 app = FastAPI(
     title="Smart Water Leak Monitoring API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 
@@ -57,5 +84,10 @@ def health_check():
 
 
 # Registrasi router API v1
+app.include_router(summary_router)
+app.include_router(rooms_router)
+app.include_router(usage_router)
+app.include_router(alerts_router)
+app.include_router(notifications_router)
 app.include_router(commands_router)
 

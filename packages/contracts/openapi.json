@@ -1,0 +1,1294 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Smart Water Leak Monitoring API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Health Check",
+        "description": "Pemeriksaan kesehatan sistem (debug, publik tanpa token).",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/summary": {
+      "get": {
+        "tags": [
+          "Summary"
+        ],
+        "summary": "Ringkasan pemantauan air kos (Beranda)",
+        "description": "Mengembalikan data agregasi ringkasan dashboard:\n- today_l: total liter hari ini (WIB)\n- month_l: total liter bulan berjalan\n- last_7_days_end: tanggal hari ini WIB\n- last_7_days_l: deret volume 7 hari terakhir\n- tally: jumlah kamar normal, closed, offline, leak\n- open_alert_count: jumlah alert berstatus OPEN\n- latest_open_alert: alert OPEN terbaru",
+        "operationId": "get_summary_v1_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/rooms": {
+      "get": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Daftar kamar kos dengan status dan volume hari ini",
+        "description": "Mengembalikan daftar seluruh kamar kos:\n- filter=all: seluruh kamar\n- filter=attention: kamar bocor (LEAK), offline (OFFLINE), atau tertutup (CLOSED)\n- filter=offline: hanya kamar yang sedang offline (> 30s)",
+        "operationId": "get_rooms_v1_rooms_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Filter kamar: all | attention | offline",
+              "default": "all",
+              "title": "Filter"
+            },
+            "description": "Filter kamar: all | attention | offline"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_id}": {
+      "get": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Detail satu kamar kos beserta metrik dan 3 alert terakhir",
+        "description": "Mengembalikan detail satu kamar, volume bulan berjalan, rata-rata harian, dan 3 alert terkini.",
+        "operationId": "get_room_detail_v1_rooms__room_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Room Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_id}/commands": {
+      "get": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Riwayat perintah kendali valve kamar",
+        "description": "Mengambil riwayat perintah buka/tutup valve untuk kamar tertentu.",
+        "operationId": "get_room_commands_v1_rooms__room_id__commands_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Room Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "Batas maksimal riwayat",
+              "default": 10,
+              "title": "Limit"
+            },
+            "description": "Batas maksimal riwayat"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomCommandsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_id}/usage": {
+      "get": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Data grafik penggunaan air per kamar",
+        "description": "Alias langsung ke router /v1/usage dengan parameter room_id.",
+        "operationId": "get_room_usage_v1_rooms__room_id__usage_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Room Id"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Periode grafik: daily | monthly",
+              "default": "daily",
+              "title": "Period"
+            },
+            "description": "Periode grafik: daily | monthly"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/usage": {
+      "get": {
+        "tags": [
+          "Usage"
+        ],
+        "summary": "Data seri grafik pemakaian air kos atau kamar",
+        "description": "Mengembalikan data deret grafik harian atau bulanan beserta total, rata-rata, puncak, dan distribusi kamar.",
+        "operationId": "get_usage_v1_usage_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Periode grafik: daily | monthly",
+              "default": "daily",
+              "title": "Period"
+            },
+            "description": "Periode grafik: daily | monthly"
+          },
+          {
+            "name": "room_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter kamar tertentu (opsional)",
+              "title": "Room Id"
+            },
+            "description": "Filter kamar tertentu (opsional)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/alerts": {
+      "get": {
+        "tags": [
+          "Alerts"
+        ],
+        "summary": "Daftar alert dengan filter status dan pagination cursor",
+        "description": "Mengambil daftar notifikasi/alert dengan filter status dan pagination cursor 'before'.",
+        "operationId": "get_alerts_v1_alerts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Filter status: all | open | resolved",
+              "default": "all",
+              "title": "Status"
+            },
+            "description": "Filter status: all | open | resolved"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "Maksimal item per halaman",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Maksimal item per halaman"
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cursor ID untuk pagination (id < before)",
+              "title": "Before"
+            },
+            "description": "Cursor ID untuk pagination (id < before)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/alerts/{alert_id}": {
+      "get": {
+        "tags": [
+          "Alerts"
+        ],
+        "summary": "Detail lengkap satu alert",
+        "description": "Mengambil rincian data satu alert (detail metrik, durasi, flow_lpm, rasio).",
+        "operationId": "get_alert_detail_v1_alerts__alert_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Alert Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/alerts/{alert_id}/resolve": {
+      "post": {
+        "tags": [
+          "Alerts"
+        ],
+        "summary": "Resolusi manual sebuah alert oleh pemilik",
+        "description": "Menandai alert sebagai RESOLVED oleh aplikasi (APP).",
+        "operationId": "resolve_alert_v1_alerts__alert_id__resolve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Alert Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/push-tokens": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mendaftarkan atau memperbarui token FCM perangkat",
+        "description": "Mendaftarkan token FCM HP pemilik untuk push notification alert.\nJika token sudah ada, perbarui waktu dan platform secara idempoten.\nMengembalikan HTTP 204 No Content.",
+        "operationId": "register_push_token_v1_push_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushTokenCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/rooms/{room_id}/valve": {
+      "post": {
+        "tags": [
+          "Valve Commands"
+        ],
+        "summary": "Kirim perintah buka/tutup valve ke kamar",
+        "description": "Mengirim perintah buka/tutup valve ke kamar:\n1. Cek kamar dan device terdaftar\n2. Cek perangkat online (last_seen_at <= 30 detik)\n3. Cek tidak ada perintah PENDING yang sedang berlangsung\n4. Simpan record PENDING ke valve_commands\n5. Publish pesan cmd ke broker Mosquitto (swm/{device_id}/cmd)\n6. Balas 202 Accepted dengan command_id dan status PENDING",
+        "operationId": "create_valve_command_v1_rooms__room_id__valve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Room Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValveCommandCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValveCommandCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/{command_id}": {
+      "get": {
+        "tags": [
+          "Valve Commands"
+        ],
+        "summary": "Cek status perintah kendali valve (polling)",
+        "description": "Mengambil status perintah valve terkini:\nJika status masih PENDING dan telah melewati 15 detik, otomatis ditransisikan ke FAILED.",
+        "operationId": "get_command_status_v1_commands__command_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Command Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValveCommandDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AlertDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "room_id": {
+            "type": "integer",
+            "title": "Room Id"
+          },
+          "room_name": {
+            "type": "string",
+            "title": "Room Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "resolved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved By"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "room_id",
+          "room_name",
+          "type",
+          "rule",
+          "status",
+          "created_at"
+        ],
+        "title": "AlertDetailResponse"
+      },
+      "AlertListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AlertDetailResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Before"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AlertListResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LatestOpenAlertSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "room_id": {
+            "type": "integer",
+            "title": "Room Id"
+          },
+          "room_name": {
+            "type": "string",
+            "title": "Room Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "room_id",
+          "room_name",
+          "type",
+          "created_at"
+        ],
+        "title": "LatestOpenAlertSummary"
+      },
+      "PushTokenCreateRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "android",
+              "ios"
+            ],
+            "title": "Platform",
+            "default": "android"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "PushTokenCreateRequest"
+      },
+      "RoomCommandsResponse": {
+        "properties": {
+          "commands": {
+            "items": {
+              "$ref": "#/components/schemas/ValveCommandDetailResponse"
+            },
+            "type": "array",
+            "title": "Commands",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "RoomCommandsResponse"
+      },
+      "RoomDetailResponse": {
+        "properties": {
+          "room": {
+            "$ref": "#/components/schemas/RoomListItem"
+          },
+          "month_l": {
+            "type": "number",
+            "title": "Month L"
+          },
+          "avg_daily_l": {
+            "type": "number",
+            "title": "Avg Daily L"
+          },
+          "recent_alerts": {
+            "items": {
+              "$ref": "#/components/schemas/AlertDetailResponse"
+            },
+            "type": "array",
+            "title": "Recent Alerts",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "room",
+          "month_l",
+          "avg_daily_l"
+        ],
+        "title": "RoomDetailResponse"
+      },
+      "RoomListItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RoomStatusEnum"
+          },
+          "valve": {
+            "type": "string",
+            "title": "Valve"
+          },
+          "today_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Today L"
+          },
+          "flow_lpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flow Lpm"
+          },
+          "is_highest": {
+            "type": "boolean",
+            "title": "Is Highest",
+            "default": false
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "valve"
+        ],
+        "title": "RoomListItem"
+      },
+      "RoomListResponse": {
+        "properties": {
+          "rooms": {
+            "items": {
+              "$ref": "#/components/schemas/RoomListItem"
+            },
+            "type": "array",
+            "title": "Rooms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rooms"
+        ],
+        "title": "RoomListResponse"
+      },
+      "RoomStatusEnum": {
+        "type": "string",
+        "enum": [
+          "NORMAL",
+          "LEAK",
+          "CLOSED",
+          "OFFLINE"
+        ],
+        "title": "RoomStatusEnum"
+      },
+      "SummaryResponse": {
+        "properties": {
+          "today_l": {
+            "type": "number",
+            "title": "Today L"
+          },
+          "month_l": {
+            "type": "number",
+            "title": "Month L"
+          },
+          "last_7_days_end": {
+            "type": "string",
+            "title": "Last 7 Days End"
+          },
+          "last_7_days_l": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Last 7 Days L"
+          },
+          "tally": {
+            "$ref": "#/components/schemas/SummaryTally"
+          },
+          "open_alert_count": {
+            "type": "integer",
+            "title": "Open Alert Count"
+          },
+          "latest_open_alert": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatestOpenAlertSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "today_l",
+          "month_l",
+          "last_7_days_end",
+          "last_7_days_l",
+          "tally",
+          "open_alert_count"
+        ],
+        "title": "SummaryResponse"
+      },
+      "SummaryTally": {
+        "properties": {
+          "normal": {
+            "type": "integer",
+            "title": "Normal",
+            "default": 0
+          },
+          "closed": {
+            "type": "integer",
+            "title": "Closed",
+            "default": 0
+          },
+          "offline": {
+            "type": "integer",
+            "title": "Offline",
+            "default": 0
+          },
+          "leak": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leak",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SummaryTally"
+      },
+      "UsageByRoom": {
+        "properties": {
+          "room_id": {
+            "type": "integer",
+            "title": "Room Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "volume_l": {
+            "type": "number",
+            "title": "Volume L"
+          }
+        },
+        "type": "object",
+        "required": [
+          "room_id",
+          "name",
+          "volume_l"
+        ],
+        "title": "UsageByRoom"
+      },
+      "UsageDataPoint": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "volume_l": {
+            "type": "number",
+            "title": "Volume L"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "volume_l"
+        ],
+        "title": "UsageDataPoint"
+      },
+      "UsageResponse": {
+        "properties": {
+          "period": {
+            "type": "string",
+            "title": "Period"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/UsageDataPoint"
+            },
+            "type": "array",
+            "title": "Series",
+            "default": []
+          },
+          "total_l": {
+            "type": "number",
+            "title": "Total L"
+          },
+          "average_l": {
+            "type": "number",
+            "title": "Average L"
+          },
+          "peak": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsageDataPoint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "by_room": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/UsageByRoom"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By Room"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "total_l",
+          "average_l"
+        ],
+        "title": "UsageResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ValveActionEnum": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "CLOSE"
+        ],
+        "title": "ValveActionEnum"
+      },
+      "ValveCommandCreateRequest": {
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ValveActionEnum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "ValveCommandCreateRequest"
+      },
+      "ValveCommandCreateResponse": {
+        "properties": {
+          "command_id": {
+            "type": "integer",
+            "title": "Command Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "PENDING"
+          }
+        },
+        "type": "object",
+        "required": [
+          "command_id"
+        ],
+        "title": "ValveCommandCreateResponse"
+      },
+      "ValveCommandDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "room_id": {
+            "type": "integer",
+            "title": "Room Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "acked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "room_id",
+          "action",
+          "source",
+          "status",
+          "created_at"
+        ],
+        "title": "ValveCommandDetailResponse"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

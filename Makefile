@@ -25,6 +25,6 @@ test:
 	python packages/contracts/test_contracts.py
 	pytest services/api/tests
 
-# Diisi di R-07.
+# Ekspor OpenAPI (R-07)
 contracts:
-	@echo "TODO: ekspor openapi.json dari FastAPI ke packages/contracts/openapi.json"
+	python services/api/scripts/export_openapi.py

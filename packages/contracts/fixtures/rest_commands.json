@@ -1,0 +1,13 @@
+{
+  "commands": [
+    {
+      "id": 512,
+      "room_id": 2,
+      "action": "OPEN",
+      "source": "APP",
+      "status": "PENDING",
+      "created_at": "2026-11-07T07:30:00Z",
+      "acked_at": null
+    }
+  ]
+}

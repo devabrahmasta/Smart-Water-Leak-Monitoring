@@ -1,0 +1,22 @@
+{
+  "period": "daily",
+  "series": [
+    {
+      "label": "2026-11-07",
+      "volume_l": 312.5
+    }
+  ],
+  "total_l": 1731.9,
+  "average_l": 247.4,
+  "peak": {
+    "label": "2026-11-04",
+    "volume_l": 305.7
+  },
+  "by_room": [
+    {
+      "room_id": 1,
+      "name": "Kamar 1",
+      "volume_l": 1100.2
+    }
+  ]
+}
