@@ -294,3 +294,4 @@ def route_mqtt_message(db: Session, topic: str, raw_payload: bytes) -> IngestRes
         err = f"Topik tidak dikenali: {msg_type}"
         logger.warning(f"Pesan pada topik '{topic}' diabaikan: {err}")
         return IngestResult(success=False, error=err)
+

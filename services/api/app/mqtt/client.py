@@ -89,3 +89,4 @@ def create_mqtt_client(
     client.on_message = on_message
 
     return client
+

@@ -44,3 +44,4 @@ def validate_payload(schema_name: str, payload: Dict[str, Any]) -> Tuple[bool, O
         return False, f"Validasi skema '{schema_name}' gagal: {err.message}"
     except Exception as err:
         return False, f"Error saat validasi skema '{schema_name}': {str(err)}"
+
