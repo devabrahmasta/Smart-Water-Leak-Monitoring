@@ -18,6 +18,7 @@ from app.models.usage import DailyUsage
 from app.models.alert import Alert, AlertType, AlertRule, AlertStatus
 from app.models.rule_param import RuleParam
 from app.rules.anomaly import evaluate_daily_anomaly
+from app.notify.dispatcher import dispatch_alert_notification
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +140,12 @@ def run_anomaly_detection(
     if created_alerts:
         try:
             db.commit()
+            for alert in created_alerts:
+                db.refresh(alert)
+                try:
+                    dispatch_alert_notification(db, alert)
+                except Exception as notify_err:
+                    logger.error(f"Gagal mengirim notifikasi anomali alert {alert.id}: {notify_err}")
         except Exception as e:
             db.rollback()
             logger.error(f"Gagal menyimpan alert anomali: {e}")
