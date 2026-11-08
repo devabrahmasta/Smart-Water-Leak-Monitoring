@@ -14,9 +14,18 @@ Library: PubSubClient, WiFiClientSecure, ArduinoJson, Preferences (NVS), NTP.
 - TLS dengan `setCACert`. `setInsecure()` dilarang.
 - Konversi debit: L/menit = pulsa per detik ÷ 7,5 (kalibrasi sebelum demo).
 
-## Rahasia
+## Cara Menjalankan di Arduino IDE
 
-Salin `secrets.example.h` menjadi `secrets.h` lalu isi. `secrets.h` sudah di `.gitignore`.
+1. Buka Arduino IDE.
+2. Install library via **Library Manager** (`Ctrl+Shift+I`):
+   - `PubSubClient` (oleh Nick O'Leary)
+   - `ArduinoJson` (oleh Benoit Blanchon)
+3. Buat file `firmware/esp32/secrets.h` (salin dari `secrets.example.h`), lalu isi:
+   - SSID & Password WiFi
+   - Host MQTT, port, kredensial (`MQTT_DEVICE_ID`: `"1"` untuk kamar 1, `"2"` untuk kamar 2)
+   - Sertifikat CA broker di `MQTT_CA_CERT`
+4. Buka file `firmware/esp32/esp32.ino`.
+5. Pilih Board: **ESP32 Dev Module**, port COM yang sesuai, lalu klik **Upload**.
 
 ## Keputusan Hardware & Rangkaian (R-13)
 
