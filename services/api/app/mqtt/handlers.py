@@ -256,6 +256,77 @@ def handle_status(db: Session, device_id: str, payload: Dict[str, Any]) -> Inges
         return IngestResult(success=False, error=err)
 
 
+def handle_ack(db: Session, device_id: str, payload: Dict[str, Any]) -> IngestResult:
+    """
+    Memproses payload konfirmasi ACK dari perangkat (swm/{device_id}/ack):
+    1. Validasi JSON Schema terhadap ack.json
+    2. Cek pendaftaran perangkat & keberadaan perintah
+    3. Update status perintah menjadi SUCCESS atau FAILED
+    4. Jika aksi perintah OPEN dan sukses, otomatis me-resolve seluruh alert LEAK yang OPEN (resolved_by: APP)
+    5. Update status valve perangkat dan last_seen_at
+    """
+    # 1. Validasi skema
+    is_valid, err_msg = validate_payload("ack", payload)
+    if not is_valid:
+        logger.warning(f"ACK dari device '{device_id}' ditolak: {err_msg}")
+        return IngestResult(success=False, error=err_msg)
+
+    # 2. Cek perangkat terdaftar
+    device = db.query(Device).filter_by(id=device_id).first()
+    if not device:
+        err = f"Perangkat tidak terdaftar: {device_id}"
+        logger.warning(err)
+        return IngestResult(success=False, error=err)
+
+    command_id = int(payload["command_id"])
+    result = payload["result"]
+    valve_str = payload["valve"]
+
+    command = db.query(ValveCommand).filter_by(id=command_id).first()
+    if not command:
+        err = f"Perintah tidak ditemukan: {command_id}"
+        logger.warning(err)
+        return IngestResult(success=False, error=err)
+
+    now_utc = datetime.now(timezone.utc)
+    command.acked_at = now_utc
+
+    # 3. Proses hasil ACK
+    if result == "OK":
+        command.status = CommandStatus.SUCCESS
+        device.valve_state = ValveState(valve_str)
+        device.last_seen_at = now_utc
+
+        # 4. Jika aksi perintah adalah OPEN, me-resolve alert LEAK aktif
+        if command.action == CommandAction.OPEN:
+            open_leak_alerts = (
+                db.query(Alert)
+                .filter(
+                    Alert.room_id == command.room_id,
+                    Alert.type == AlertType.LEAK,
+                    Alert.status == AlertStatus.OPEN,
+                )
+                .all()
+            )
+            for open_alert in open_leak_alerts:
+                open_alert.status = AlertStatus.RESOLVED
+                open_alert.resolved_by = AlertResolvedBy.APP
+                open_alert.resolved_at = now_utc
+                logger.info(f"Alert kebocoran id={open_alert.id} otomatis di-RESOLVE oleh perintah OPEN APP")
+    else:
+        command.status = CommandStatus.FAILED
+        device.last_seen_at = now_utc
+
+    try:
+        db.commit()
+        return IngestResult(success=True)
+    except Exception as e:
+        db.rollback()
+        err = f"Gagal memproses ACK: {str(e)}"
+        logger.error(err)
+        return IngestResult(success=False, error=err)
+
+
 def route_mqtt_message(db: Session, topic: str, raw_payload: bytes) -> IngestResult:
     """
     Rute pesan MQTT berdasarkan format topik swm/{device_id}/{message_type}.
@@ -290,6 +361,8 @@ def route_mqtt_message(db: Session, topic: str, raw_payload: bytes) -> IngestRes
         return handle_alert(db, device_id, payload)
     elif msg_type == "status":
         return handle_status(db, device_id, payload)
+    elif msg_type == "ack":
+        return handle_ack(db, device_id, payload)
     else:
         err = f"Topik tidak dikenali: {msg_type}"
         logger.warning(f"Pesan pada topik '{topic}' diabaikan: {err}")

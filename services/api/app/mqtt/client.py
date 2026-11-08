@@ -3,6 +3,7 @@ Paho MQTT Client untuk Ingest Worker dengan dukungan TLS v1.2/v1.3 dan auto-reco
 """
 
 import ssl
+import json
 import logging
 from pathlib import Path
 from typing import Optional, Callable
@@ -20,7 +21,27 @@ INGEST_TOPICS = [
     ("swm/+/telemetry", 1),
     ("swm/+/alert", 1),
     ("swm/+/status", 1),
+    ("swm/+/ack", 1),
 ]
+
+
+def publish_valve_command(
+    client: mqtt.Client,
+    device_id: str,
+    command_id: int,
+    action: str,
+) -> bool:
+    """Menerbitkan perintah buka/tutup valve ke topik swm/{device_id}/cmd dengan QoS 1."""
+    topic = f"swm/{device_id}/cmd"
+    payload = {"command_id": command_id, "action": action}
+    payload_bytes = json.dumps(payload).encode("utf-8")
+    try:
+        client.publish(topic, payload_bytes, qos=1)
+        logger.info(f"Published perintah ke {topic}: {payload}")
+        return True
+    except Exception as e:
+        logger.error(f"Gagal publish perintah ke {topic}: {e}")
+        return False
 
 
 def create_mqtt_client(
