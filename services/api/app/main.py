@@ -11,6 +11,11 @@ from fastapi.exceptions import RequestValidationError, HTTPException
 from app.config import settings
 from app.jobs.scheduler import start_scheduler, stop_scheduler
 from app.api.v1.commands import router as commands_router
+from app.api.v1.summary import router as summary_router
+from app.api.v1.rooms import router as rooms_router
+from app.api.v1.usage import router as usage_router
+from app.api.v1.alerts import router as alerts_router
+from app.api.v1.notifications import router as notifications_router
 
 logger = logging.getLogger("main")
 
@@ -79,5 +84,10 @@ def health_check():
 
 
 # Registrasi router API v1
+app.include_router(summary_router)
+app.include_router(rooms_router)
+app.include_router(usage_router)
+app.include_router(alerts_router)
+app.include_router(notifications_router)
 app.include_router(commands_router)
 
