@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
-from sqlalchemy import BigInteger, String, Float, DateTime, Enum, ForeignKey, UniqueConstraint, func
+from sqlalchemy import BigInteger, Integer, String, Float, DateTime, Enum, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -13,7 +13,11 @@ if TYPE_CHECKING:
 class Telemetry(Base):
     __tablename__ = "telemetry"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
     device_id: Mapped[str] = mapped_column(
         String(50),
         ForeignKey("devices.id", ondelete="CASCADE"),
