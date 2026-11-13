@@ -55,6 +55,8 @@ IP.3 = 192.168.1.114
 DNS.3 = 192.168.1.114
 IP.4 = 10.129.156.5
 DNS.4 = 10.129.156.5
+IP.5 = 10.227.134.5
+DNS.5 = 10.227.134.5
 "@
 
 $caCnf | Out-File -FilePath "$certDir/ca.cnf" -Encoding ascii

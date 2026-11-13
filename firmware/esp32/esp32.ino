@@ -106,6 +106,12 @@ unsigned long quietHoursFlowStartMs = 0;
 unsigned long lastTelemetryMillis = 0;
 unsigned long lastFlowCalcMillis = 0;
 unsigned long lastWifiCheckMillis = 0;
+unsigned long lastWifiBeginMillis = 0;
+unsigned long lastLedBlinkMillis = 0;
+bool wifiWasConnected = false;
+
+// Status yang belum terkirim karena offline (BOOT atau MANUAL_BUTTON).
+const char* pendingStatusSource = nullptr;
 
 // Button Debounce
 int lastButtonState = HIGH;
@@ -138,15 +144,23 @@ void saveValveState(bool isOpen) {
 // ==========================================
 void applyValveState(bool open) {
   valveIsOpen = open;
-  if (valveIsOpen) {
-    digitalWrite(PIN_RELAY_VALVE, VALVE_OPEN_SIGNAL);
-    digitalWrite(PIN_LED_GREEN, HIGH);
-    digitalWrite(PIN_LED_RED, LOW);
-  } else {
-    digitalWrite(PIN_RELAY_VALVE, VALVE_CLOSE_SIGNAL);
-    digitalWrite(PIN_LED_GREEN, LOW);
-    digitalWrite(PIN_LED_RED, HIGH);
+  digitalWrite(PIN_RELAY_VALVE, valveIsOpen ? VALVE_OPEN_SIGNAL : VALVE_CLOSE_SIGNAL);
+}
+
+// LED dipanggil tiap loop:
+// - Offline (WiFi atau MQTT belum tersambung): biru berkedip, hijau mati.
+// - Online: biru mati, hijau menyala selama valve terbuka (normal).
+// - Merah menyala selama valve tertutup, online maupun offline.
+void updateLeds(unsigned long now) {
+  bool online = WiFi.status() == WL_CONNECTED && mqttClient.connected();
+  if (online) {
+    digitalWrite(PIN_LED_BLUE, LOW);
+  } else if (now - lastLedBlinkMillis >= 300) {
+    lastLedBlinkMillis = now;
+    digitalWrite(PIN_LED_BLUE, !digitalRead(PIN_LED_BLUE));
   }
+  digitalWrite(PIN_LED_GREEN, online && valveIsOpen ? HIGH : LOW);
+  digitalWrite(PIN_LED_RED, valveIsOpen ? LOW : HIGH);
 }
 
 // ==========================================
@@ -242,7 +256,11 @@ void sendAlert(const char* ruleName) {
 }
 
 void sendStatus(const char* source) {
-  if (!mqttClient.connected()) return;
+  if (!mqttClient.connected()) {
+    // Dikirim begitu MQTT tersambung (lihat connectMqtt).
+    pendingStatusSource = source;
+    return;
+  }
 
   char tsBuf[30];
   bool timeValid = getNtpTime(tsBuf, sizeof(tsBuf));
@@ -458,25 +476,31 @@ void handleButton() {
 // ==========================================
 // KONEKSI WIFI & MQTT (TLS)
 // ==========================================
-void connectWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-
+// Tidak memblokir: loop tetap jalan (tombol, sensor, aturan bocor) saat
+// WiFi belum ada.
+void startWiFi() {
   WiFi.mode(WIFI_STA);
   // Modem sleep bisa menunda paket dan memutus koneksi MQTT.
   WiFi.setSleep(false);
+  WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  lastWifiBeginMillis = millis();
+}
 
-  unsigned long startAttempt = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 15000) {
-    digitalWrite(PIN_LED_BLUE, !digitalRead(PIN_LED_BLUE)); // Kedip cepat saat mencoba konek
-    delay(300);
-  }
+void handleWiFi(unsigned long now) {
+  bool connected = WiFi.status() == WL_CONNECTED;
 
-  if (WiFi.status() == WL_CONNECTED) {
-    digitalWrite(PIN_LED_BLUE, HIGH); // Biru menyala jika WiFi terhubung
+  if (connected && !wifiWasConnected) {
     configTime(0, 0, NTP_SERVER1, NTP_SERVER2); // Sync NTP (UTC)
-  } else {
-    digitalWrite(PIN_LED_BLUE, LOW);
+  }
+  wifiWasConnected = connected;
+  if (connected) return;
+
+  // Mulai ulang percobaan kalau 15 detik belum tersambung.
+  if (now - lastWifiBeginMillis >= 15000) {
+    WiFi.disconnect();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    lastWifiBeginMillis = now;
   }
 }
 
@@ -491,9 +515,11 @@ void connectMqtt() {
   if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
     mqttClient.subscribe(topicCmd.c_str(), 1); // QoS 1
     mqttClient.subscribe(topicConfig.c_str(), 1); // Retained: diterima lagi setiap tersambung
-    digitalWrite(PIN_LED_BLUE, HIGH);
-  } else {
-    digitalWrite(PIN_LED_BLUE, LOW);
+    if (pendingStatusSource != nullptr) {
+      const char* source = pendingStatusSource;
+      pendingStatusSource = nullptr;
+      sendStatus(source);
+    }
   }
 }
 
@@ -546,11 +572,11 @@ void setup() {
   // Beri ruang untuk gangguan Wi-Fi sesaat (default PubSubClient 15 detik).
   mqttClient.setKeepAlive(60);
 
-  // Sambungkan WiFi & MQTT
-  connectWiFi();
-  connectMqtt();
+  // Sambungkan WiFi tanpa menunggu; MQTT menyusul di loop.
+  startWiFi();
 
-  // CONTRACT.md 2.6: Setelah boot, kirim status dengan source: BOOT
+  // CONTRACT.md 2.6: Setelah boot, kirim status dengan source: BOOT.
+  // Belum online, jadi disimpan dan terkirim saat MQTT tersambung.
   sendStatus("BOOT");
 }
 
@@ -561,12 +587,8 @@ void loop() {
   unsigned long now = millis();
 
   // 1. Cek & Tangani Koneksi
-  if (WiFi.status() != WL_CONNECTED) {
-    if (now - lastWifiCheckMillis >= 5000) {
-      lastWifiCheckMillis = now;
-      connectWiFi();
-    }
-  } else {
+  handleWiFi(now);
+  if (WiFi.status() == WL_CONNECTED) {
     if (!mqttClient.connected()) {
       if (now - lastWifiCheckMillis >= 5000) {
         lastWifiCheckMillis = now;
@@ -579,6 +601,7 @@ void loop() {
 
   // 2. Baca Tombol Fisik (Debounced)
   handleButton();
+  updateLeds(now);
 
   // 3. Kalkulasi Debit & Volume Tiap 1 Detik
   if (now - lastFlowCalcMillis >= 1000) {
