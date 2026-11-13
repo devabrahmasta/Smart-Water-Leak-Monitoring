@@ -130,4 +130,16 @@ class HttpSmartWaterRepository implements SmartWaterRepository {
       throw e.error is ApiException ? e.error! : ApiException.fromDio(e);
     }
   }
+
+  @override
+  Future<LiveFlow> getLiveFlow(int roomId) =>
+      _get('/v1/rooms/$roomId/live', (j) => LiveFlow.fromJson(_map(j)));
+
+  @override
+  Future<FlowSeries> getFlow(int roomId, {required String date, int? hour}) =>
+      _get(
+        '/v1/rooms/$roomId/flow',
+        (j) => FlowSeries.fromJson(_map(j)),
+        query: {'date': date, 'hour': ?hour},
+      );
 }

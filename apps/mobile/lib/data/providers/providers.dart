@@ -98,6 +98,30 @@ final activeLeakProvider = Provider.autoDispose<bool>((ref) {
       latest?.type == AlertType.leak;
 });
 
+/// Debit sekarang, dimuat ulang tiap 1 detik selama layar terbuka
+/// (CONTRACT.md 2.12). Polling mati di tes ([pollIntervalProvider] null).
+final liveFlowProvider = FutureProvider.autoDispose.family<LiveFlow, int>((
+  ref,
+  roomId,
+) {
+  if (ref.read(pollIntervalProvider) != null) {
+    final timer = Timer(const Duration(seconds: 1), ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return ref.watch(repositoryProvider).getLiveFlow(roomId);
+});
+
+/// Grafik aliran: [FlowQuery.hour] null = per jam.
+typedef FlowQuery = ({int roomId, String date, int? hour});
+
+final flowSeriesProvider = FutureProvider.autoDispose
+    .family<FlowSeries, FlowQuery>((ref, q) {
+      ref.poll();
+      return ref
+          .watch(repositoryProvider)
+          .getFlow(q.roomId, date: q.date, hour: q.hour);
+    });
+
 /// Ambang aturan kebocoran satu kamar.
 final roomRulesProvider = FutureProvider.autoDispose.family<RoomRules, int>(
   (ref, roomId) => ref.watch(repositoryProvider).getRoomRules(roomId),

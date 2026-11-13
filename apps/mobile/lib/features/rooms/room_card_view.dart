@@ -16,9 +16,17 @@ import '../valve/valve_controller.dart';
 /// - disabled bila perangkat offline (US-09) atau server tidak terjangkau
 ///   (US-19).
 class RoomCardView extends ConsumerWidget {
-  const RoomCardView({super.key, required this.room, this.onTap});
+  const RoomCardView({
+    super.key,
+    required this.room,
+    this.onTap,
+    this.liveFlowLpm,
+  });
 
   final Room room;
+
+  /// Debit dari `live` (Detail Kamar). Null = pakai debit dari telemetri.
+  final double? liveFlowLpm;
   final VoidCallback? onTap;
 
   @override
@@ -56,7 +64,7 @@ class RoomCardView extends ConsumerWidget {
       name: room.name,
       status: roomCardStatus(room.status),
       todayLiters: room.todayL,
-      flowLpm: room.flowLpm,
+      flowLpm: liveFlowLpm ?? room.flowLpm,
       summary: roomSummary(room),
       isHighest: room.isHighest,
       valveTitle: panel.title,

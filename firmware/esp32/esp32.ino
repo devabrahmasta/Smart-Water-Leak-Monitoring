@@ -85,6 +85,7 @@ String topicStatus;
 String topicCmd;
 String topicAck;
 String topicConfig;
+String topicLive;
 
 // Status & Variabel Sistem
 volatile unsigned long pulseCount = 0;
@@ -226,6 +227,18 @@ void sendTelemetry() {
 
   // Reset delta volume setelah dipublish
   deltaVolumeL = 0.0f;
+}
+
+// Debit sekarang tiap 1 detik untuk tampilan aplikasi (CONTRACT.md 2.12).
+// Tidak disimpan backend dan tidak dikirim ulang saat offline.
+void sendLive() {
+  if (!mqttClient.connected()) return;
+  JsonDocument doc;
+  doc["flow_lpm"] = serialized(String(currentFlowRateLpm, 2));
+  doc["valve"] = valveIsOpen ? "OPEN" : "CLOSED";
+  char jsonBuffer[96];
+  serializeJson(doc, jsonBuffer);
+  mqttClient.publish(topicLive.c_str(), jsonBuffer, false);
 }
 
 void sendAlert(const char* ruleName) {
@@ -563,6 +576,7 @@ void setup() {
   topicCmd       = "swm/" + String(MQTT_DEVICE_ID) + "/cmd";
   topicAck       = "swm/" + String(MQTT_DEVICE_ID) + "/ack";
   topicConfig    = "swm/" + String(MQTT_DEVICE_ID) + "/config";
+  topicLive      = "swm/" + String(MQTT_DEVICE_ID) + "/live";
 
   // Konfigurasi MQTT Client
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
@@ -621,6 +635,7 @@ void loop() {
 
     // Evaluasi Aturan Kebocoran Lokal
     checkLeakRules(now);
+    sendLive();
   }
 
   // 4. Publikasi Telemetri Tiap 10 Detik

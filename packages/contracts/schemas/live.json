@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smartwater.timunmania.id/schemas/live.json",
+  "title": "LivePayload",
+  "description": "Debit sekarang dari perangkat tiap 1 detik, hanya untuk tampilan",
+  "type": "object",
+  "properties": {
+    "flow_lpm": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Debit sekarang, L/menit"
+    },
+    "valve": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "CLOSED"
+      ]
+    }
+  },
+  "required": [
+    "flow_lpm",
+    "valve"
+  ],
+  "additionalProperties": false
+}

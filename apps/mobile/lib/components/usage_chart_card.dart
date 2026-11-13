@@ -28,7 +28,21 @@ class UsageChartCard extends StatefulWidget {
     required this.title,
     required this.rangeLabel,
     required this.points,
+    this.formatValue = formatLiters,
+    this.emptyText = 'Belum ada data pemakaian',
+    this.labelEvery,
+    this.onBarTap,
   });
+
+  /// Format nilai bar. Bawaan liter; grafik aliran memakai L/menit.
+  final String Function(num value) formatValue;
+  final String emptyText;
+
+  /// Label sumbu x tiap N bar untuk grafik padat (mis. 6 untuk 24 jam).
+  final int? labelEvery;
+
+  /// Diisi untuk zoom: bar diketuk langsung memanggil ini.
+  final ValueChanged<int>? onBarTap;
 
   /// "Pemakaian harian" / "Pemakaian bulanan".
   final String title;
@@ -91,7 +105,7 @@ class _UsageChartCardState extends State<UsageChartCard> {
                 ? _buildBars()
                 : Center(
                     child: Text(
-                      'Belum ada data pemakaian',
+                      widget.emptyText,
                       style: AppTextStyles.body.copyWith(
                         color: AppColors.inkMuted,
                       ),
@@ -129,15 +143,20 @@ class _UsageChartCardState extends State<UsageChartCard> {
                   isPeak: i == peak,
                   isSelected: i == _selected && i != peak,
                   showValue: i == labelled,
-                  showAxisLabel:
-                      !dense ||
-                      i == labelled ||
-                      i == 0 ||
-                      i == points.length - 1 ||
-                      (i + 1) % 5 == 0,
+                  showAxisLabel: widget.labelEvery != null
+                      ? i % widget.labelEvery! == 0
+                      : !dense ||
+                            i == labelled ||
+                            i == 0 ||
+                            i == points.length - 1 ||
+                            (i + 1) % 5 == 0,
                   emphasize: i == labelled,
-                  onTap: () =>
-                      setState(() => _selected = _selected == i ? null : i),
+                  formatValue: widget.formatValue,
+                  onTap: widget.onBarTap != null
+                      ? () => widget.onBarTap!(i)
+                      : () => setState(
+                          () => _selected = _selected == i ? null : i,
+                        ),
                 ),
               ),
           ],
@@ -158,8 +177,11 @@ class _Bar extends StatelessWidget {
     required this.showValue,
     required this.showAxisLabel,
     required this.emphasize,
+    required this.formatValue,
     required this.onTap,
   });
+
+  final String Function(num value) formatValue;
 
   final ChartPoint point;
   final double width;
@@ -182,7 +204,7 @@ class _Bar extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: '${point.label}: ${formatLiters(point.liters)}',
+      label: '${point.label}: ${formatValue(point.liters)}',
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -196,7 +218,7 @@ class _Bar extends StatelessWidget {
                   ? OverflowBox(
                       maxWidth: 96,
                       child: Text(
-                        formatLiters(point.liters),
+                        formatValue(point.liters),
                         maxLines: 1,
                         style: AppTextStyles.label,
                       ),

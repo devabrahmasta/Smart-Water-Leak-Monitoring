@@ -238,6 +238,24 @@ void main() {
     );
   });
 
+  test('debit langsung dan grafik aliran dari fixture', () async {
+    final (repo, backend) = _repo({
+      'GET /v1/rooms/1/live': (200, _fixture('rest_room_live')),
+      'GET /v1/rooms/1/flow': (200, _fixture('rest_room_flow_hourly')),
+    });
+    final live = await repo.getLiveFlow(1);
+    expect(live.flowLpm, 6.4);
+    expect(live.valve, ValveState.open);
+
+    final flow = await repo.getFlow(1, date: '2026-11-13');
+    expect(flow.points, hasLength(24));
+    expect(flow.points[7].maxLpm, 6.4);
+    expect(backend.calls.last.query, {'date': '2026-11-13'});
+
+    await repo.getFlow(1, date: '2026-11-13', hour: 7);
+    expect(backend.calls.last.query, {'date': '2026-11-13', 'hour': 7});
+  });
+
   test('push token: POST 204 tanpa body', () async {
     final (repo, backend) = _repo({'POST /v1/push-tokens': (204, null)});
     await repo.registerPushToken('fcm-abc');

@@ -151,7 +151,13 @@ def main():
                 logger.info(f"Target {args.ticks} tick tercapai. Menghentikan simulator.")
                 break
 
-            time.sleep(args.interval)
+            # Sambil menunggu tick berikutnya, kirim debit sekarang tiap 1 detik.
+            waited = 0.0
+            while running and waited < args.interval:
+                step = min(1.0, args.interval - waited)
+                time.sleep(step)
+                waited += step
+                device.publish_live()
     except KeyboardInterrupt:
         logger.info("Simulator dihentikan oleh pengguna.")
     finally:

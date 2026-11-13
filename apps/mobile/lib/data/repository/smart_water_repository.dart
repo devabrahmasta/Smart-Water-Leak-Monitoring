@@ -36,4 +36,10 @@ abstract interface class SmartWaterRepository {
 
   /// `POST /v1/rooms/{id}/demo-scenario`. Hanya kamar simulator.
   Future<void> setDemoScenario(int roomId, DemoScenarioKind scenario);
+
+  /// `GET /v1/rooms/{id}/live`.
+  Future<LiveFlow> getLiveFlow(int roomId);
+
+  /// `GET /v1/rooms/{id}/flow`. [date] `YYYY-MM-DD` WIB.
+  Future<FlowSeries> getFlow(int roomId, {required String date, int? hour});
 }

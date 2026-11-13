@@ -401,3 +401,67 @@ enum DemoScenarioKind {
 
   final String wire;
 }
+
+/// Debit sekarang (`GET /v1/rooms/{id}/live`). [flowLpm] null bila alat
+/// tidak mengirim `live` dalam 5 detik terakhir.
+class LiveFlow {
+  const LiveFlow({required this.roomId, this.flowLpm, this.valve});
+
+  factory LiveFlow.fromJson(Map<String, dynamic> j) => LiveFlow(
+    roomId: j['room_id'] as int,
+    flowLpm: _numOrNull(j['flow_lpm']),
+    valve: j['valve'] == null ? null : _enum(ValveState.values, j['valve']),
+  );
+
+  final int roomId;
+  final double? flowLpm;
+  final ValveState? valve;
+}
+
+/// Satu titik grafik aliran: rata-rata dan tertinggi dalam L/menit.
+class FlowPoint {
+  const FlowPoint({
+    required this.label,
+    required this.avgLpm,
+    required this.maxLpm,
+  });
+
+  factory FlowPoint.fromJson(Map<String, dynamic> j) => FlowPoint(
+    label: j['label'] as String,
+    avgLpm: _num(j['avg_lpm']),
+    maxLpm: _num(j['max_lpm']),
+  );
+
+  /// `07` (jam) atau `05` (menit).
+  final String label;
+  final double avgLpm;
+  final double maxLpm;
+}
+
+/// `GET /v1/rooms/{id}/flow`: 24 titik per jam, atau 60 titik per menit bila
+/// [hour] diisi.
+class FlowSeries {
+  const FlowSeries({
+    required this.roomId,
+    required this.date,
+    required this.hour,
+    required this.points,
+  });
+
+  factory FlowSeries.fromJson(Map<String, dynamic> j) => FlowSeries(
+    roomId: j['room_id'] as int,
+    date: j['date'] as String,
+    hour: j['hour'] as int?,
+    points: [
+      for (final p in j['series'] as List)
+        FlowPoint.fromJson(p as Map<String, dynamic>),
+    ],
+  );
+
+  final int roomId;
+
+  /// `2026-11-13`, hari WIB.
+  final String date;
+  final int? hour;
+  final List<FlowPoint> points;
+}

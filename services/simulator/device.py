@@ -63,6 +63,7 @@ class SimulatedDevice:
         # True bila pemicu dipercepat (--accel atau Mode demo): config tidak mengubahnya.
         self.accelerated = ticks_to_trigger is not None
         self.rule_config: Dict[str, int] = {}
+        self.last_flow: Optional[float] = None
 
     def set_scenario(self, name: str, ticks_to_trigger: Optional[int] = None) -> None:
         """Mengganti skenario aktif pada simulator."""
@@ -76,6 +77,18 @@ class SimulatedDevice:
         if not key or key not in self.rule_config:
             return None
         return max(1, int(self.rule_config[key] / self.interval_sec))
+
+    def publish_live(self) -> Optional[Dict[str, Any]]:
+        """Debit sekarang tiap 1 detik (CONTRACT.md 2.12). Diam saat offline."""
+        if self.last_flow is None or self.scenario.name == "offline":
+            return None
+        flow = 0.0 if self.state.valve_state == "CLOSED" else self.last_flow
+        payload = {"flow_lpm": flow, "valve": self.state.valve_state}
+        if self.mqtt_client:
+            self.mqtt_client.publish(
+                f"swm/{self.state.device_id}/live", json.dumps(payload).encode("utf-8"), qos=0
+            )
+        return payload
 
     def apply_config(self, payload: Dict[str, Any]) -> None:
         """Menerapkan ambang dari topik config ke skenario aktif."""
@@ -107,6 +120,7 @@ class SimulatedDevice:
         3. Menghasilkan dan menerbitkan payload telemetri (kecuali skenario offline).
         """
         flow_lpm, alert_rule = self.scenario.step(self.state.valve_state)
+        self.last_flow = flow_lpm
 
         # Skenario offline tidak memancarkan telemetri
         if flow_lpm is None:

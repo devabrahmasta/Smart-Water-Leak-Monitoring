@@ -59,7 +59,10 @@ class RoomDetailPage extends ConsumerWidget {
           builder: (d) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              RoomCardView(room: d.room),
+              RoomCardView(
+                room: d.room,
+                liveFlowLpm: ref.watch(liveFlowProvider(roomId)).value?.flowLpm,
+              ),
               if (d.room.status == RoomStatus.leak) ...[
                 cardGap,
                 _LeakGuide(detail: d),
@@ -100,6 +103,15 @@ class RoomDetailPage extends ConsumerWidget {
             rangeLabel: usageRangeLabel(u),
             points: chartPoints(u),
           ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AppButton(
+          label: 'Lihat aliran per jam',
+          style: AppButtonStyle.secondary,
+          size: AppButtonSize.medium,
+          expand: true,
+          onPressed: () =>
+              context.go('${GoRouterState.of(context).uri.path}/aliran'),
         ),
         const SectionTitle('Aturan deteksi'),
         _RulesSection(roomId: roomId, roomName: name),

@@ -591,4 +591,41 @@ class MockSmartWaterRepository implements SmartWaterRepository {
   @override
   Future<void> setDemoScenario(int roomId, DemoScenarioKind scenario) =>
       _delay(() => lastDemoScenario = scenario);
+
+  @override
+  Future<LiveFlow> getLiveFlow(int roomId) => _delay(() {
+    final room = _rooms.firstWhere((r) => r.id == roomId);
+    return LiveFlow(
+      roomId: roomId,
+      flowLpm: room.online ? room.flow : null,
+      valve: room.online
+          ? (room.valve == 'OPEN' ? ValveState.open : ValveState.closed)
+          : null,
+    );
+  });
+
+  @override
+  Future<FlowSeries> getFlow(int roomId, {required String date, int? hour}) =>
+      _delay(() {
+        final count = hour == null ? 24 : 60;
+        // Pola contoh: pagi dan malam lebih ramai.
+        double avg(int i) {
+          final busy = hour == null ? (i == 6 || i == 7 || i == 19) : i % 7 < 3;
+          return busy ? 4.2 : (i % 5 == 0 ? 0.8 : 0.0);
+        }
+
+        return FlowSeries(
+          roomId: roomId,
+          date: date,
+          hour: hour,
+          points: [
+            for (var i = 0; i < count; i++)
+              FlowPoint(
+                label: i.toString().padLeft(2, '0'),
+                avgLpm: avg(i),
+                maxLpm: avg(i) == 0 ? 0 : avg(i) + 2.2,
+              ),
+          ],
+        );
+      });
 }

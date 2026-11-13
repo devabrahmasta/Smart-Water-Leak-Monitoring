@@ -6,6 +6,7 @@ topic read swm/+/telemetry
 topic read swm/+/alert
 topic read swm/+/status
 topic read swm/+/ack
+topic read swm/+/live
 topic write swm/+/cmd
 topic write swm/+/config
 topic write swm/+/demo
@@ -15,6 +16,7 @@ pattern write swm/%u/telemetry
 pattern write swm/%u/alert
 pattern write swm/%u/status
 pattern write swm/%u/ack
+pattern write swm/%u/live
 pattern read swm/%u/cmd
 pattern read swm/%u/config
 

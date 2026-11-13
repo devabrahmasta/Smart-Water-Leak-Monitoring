@@ -123,6 +123,8 @@ Kamar: Header, Segmented Semua/Perlu dicek/Offline, satu Room Card per kamar. Ta
 
 Detail Kamar: Header sub, Room Card, Leak Guide Card (hanya saat bocor: kenapa terdeteksi bocor, yang sebaiknya dilakukan, tombol nyalakan air), 2 Metric Tile (bulan ini, rata rata mingguan = harian × 7), Usage Chart Card kamar ini, Room Rules Card (tiap aturan diketuk untuk diubah sendiri, sheet berisi kotak Jam : Menit : Detik; kotak aktif `primary-soft` tanpa border), Command Row, Alert Item terakhir. Kontrol valve lewat saklar di Room Card, lalu Confirm Sheet.
 
+Aliran (dari Detail Kamar, tombol Lihat aliran per jam): Header sub, debit sekarang (diperbarui tiap 1 detik), pemilih hari, Usage Chart Card L/menit per jam; bar diketuk menjadi per menit dalam jam itu, dengan tombol Kembali ke per jam.
+
 Mode demo (dari Beranda): Header sub, pilihan keadaan Kamar 2 (simulator lewat backend), tombol coba notifikasi. Kamar 1 tidak bisa diatur dari sini.
 
 Notifikasi: Header, Segmented Semua/Aktif/Selesai, daftar Alert Item. Detail alert dibuka sebagai sheet berisi aturan yang terpicu dan tombol Buka valve.
