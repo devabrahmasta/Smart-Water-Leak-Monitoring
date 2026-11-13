@@ -147,19 +147,18 @@ void applyValveState(bool open) {
   digitalWrite(PIN_RELAY_VALVE, valveIsOpen ? VALVE_OPEN_SIGNAL : VALVE_CLOSE_SIGNAL);
 }
 
-// LED dipanggil tiap loop:
-// - Offline (WiFi atau MQTT belum tersambung): biru berkedip, hijau mati.
-// - Online: biru mati, hijau menyala selama valve terbuka (normal).
-// - Merah menyala selama valve tertutup, online maupun offline.
+// LED dipanggil tiap loop. Satu lampu, satu arti:
+// - Biru = internet: menyala diam saat WiFi dan MQTT tersambung, berkedip saat offline.
+// - Hijau / merah = valve: hijau saat terbuka, merah saat tertutup (online maupun offline).
 void updateLeds(unsigned long now) {
   bool online = WiFi.status() == WL_CONNECTED && mqttClient.connected();
   if (online) {
-    digitalWrite(PIN_LED_BLUE, LOW);
+    digitalWrite(PIN_LED_BLUE, HIGH);
   } else if (now - lastLedBlinkMillis >= 300) {
     lastLedBlinkMillis = now;
     digitalWrite(PIN_LED_BLUE, !digitalRead(PIN_LED_BLUE));
   }
-  digitalWrite(PIN_LED_GREEN, online && valveIsOpen ? HIGH : LOW);
+  digitalWrite(PIN_LED_GREEN, valveIsOpen ? HIGH : LOW);
   digitalWrite(PIN_LED_RED, valveIsOpen ? LOW : HIGH);
 }
 
