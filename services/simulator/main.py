@@ -4,6 +4,7 @@ Penggunaan:
   python -m services.simulator.main --scenario normal
   python -m services.simulator.main --scenario leak-continuous --accel
   python -m services.simulator.main --scenario no-ack
+  python -m services.simulator.main --device-id 3   # Kamar 3, diatur dari Mode demo
 """
 
 import sys
@@ -26,11 +27,11 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] [sim-%(name)s] %(message)s",
 )
-logger = logging.getLogger("device-2")
+logger = logging.getLogger("simulator")
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Simulator Kamar Dummy Smart Water (device_id=2)")
+    parser = argparse.ArgumentParser(description="Simulator Kamar Dummy Smart Water (Kamar 3 Mode demo)")
     parser.add_argument(
         "--scenario",
         type=str,
@@ -59,7 +60,13 @@ def parse_args():
         "--device-id",
         type=str,
         default=settings.SIM_DEVICE_ID,
-        help="Device ID unik simulator (default: 2)",
+        help="Device ID simulator: 3 untuk Mode demo, atau 1/2 untuk menggantikan ESP32 saat uji. Default: 2",
+    )
+    parser.add_argument(
+        "--password",
+        type=str,
+        default=None,
+        help="Password broker untuk --device-id (mis. menyamar jadi Kamar 1 tanpa ESP32)",
     )
     parser.add_argument(
         "--button",
@@ -79,7 +86,9 @@ def main():
 
     ticks_to_trigger = 3 if args.accel else None
 
-    state_file = root_dir / "services" / "simulator" / ".simulator_state.json"
+    # State per perangkat supaya msg_id Kamar 2 dan Kamar 3 tidak saling menimpa.
+    suffix = "" if args.device_id == "2" else f"_{args.device_id}"
+    state_file = root_dir / "services" / "simulator" / f".simulator_state{suffix}.json"
     state = SimulatorState(
         device_id=args.device_id,
         valve_state="OPEN",
@@ -93,12 +102,14 @@ def main():
         ticks_to_trigger=ticks_to_trigger,
     )
 
-    logger.info("=== Menyiapkan Simulator Perangkat Kamar 2 ===")
+    logger.info(f"=== Menyiapkan Simulator Perangkat Kamar {args.device_id} ===")
     logger.info(f"Device ID: {state.device_id} | Skenario: {args.scenario} | Interval: {args.interval}s")
     logger.info(f"Broker: {settings.MQTT_HOST}:{settings.MQTT_PORT} (TLS)")
 
     # Konfigurasi koneksi MQTT
     client = device.setup_mqtt()
+    if args.password:
+        client.username_pw_set(args.device_id, args.password)
 
     running = True
 
@@ -151,7 +162,13 @@ def main():
                 logger.info(f"Target {args.ticks} tick tercapai. Menghentikan simulator.")
                 break
 
-            time.sleep(args.interval)
+            # Sambil menunggu tick berikutnya, kirim debit sekarang tiap 1 detik.
+            waited = 0.0
+            while running and waited < args.interval:
+                step = min(1.0, args.interval - waited)
+                time.sleep(step)
+                waited += step
+                device.publish_live()
     except KeyboardInterrupt:
         logger.info("Simulator dihentikan oleh pengguna.")
     finally:

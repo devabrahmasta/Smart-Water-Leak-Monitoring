@@ -22,6 +22,7 @@ INGEST_TOPICS = [
     ("swm/+/alert", 1),
     ("swm/+/status", 1),
     ("swm/+/ack", 1),
+    ("swm/+/live", 0),
 ]
 
 

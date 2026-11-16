@@ -25,6 +25,14 @@
 #include "secrets.h"
 
 // ==========================================
+// LOG SERIAL MONITOR (115200 baud)
+// ==========================================
+// 1 = tampilkan pembacaan sensor tiap detik dan kejadian penting.
+// 0 = matikan semua log.
+#define DEBUG_LOG 1
+#define LOGF(...) do { if (DEBUG_LOG) Serial.printf(__VA_ARGS__); } while (0)
+
+// ==========================================
 // PINOUT HARDWARE
 // ==========================================
 #define PIN_FLOW_SENSOR   4
@@ -54,13 +62,15 @@
 const float FLOW_CALIBRATION_FACTOR = 7.5;
 
 // Parameter Deteksi Kebocoran Lokal (CONTRACT.md 2.9)
-const unsigned long CONTINUOUS_LEAK_MS = 45UL * 60UL * 1000UL; // 45 menit
-const unsigned long STABLE_LEAK_MS     = 5UL * 60UL * 1000UL;  // 5 menit
+// Nilai bawaan. Bisa diubah per kamar dari aplikasi lewat topik config,
+// lalu disimpan di NVS (CONTRACT.md 2.10).
+unsigned long continuousLeakMs = 45UL * 60UL * 1000UL; // 45 menit
+unsigned long stableLeakMs     = 5UL * 60UL * 1000UL;  // 5 menit
+unsigned long quietLeakMs      = 5UL * 60UL * 1000UL;  // 5 menit
+int quietStartMin = 1 * 60;                             // 01:00 WIB, menit sejak 00:00
+int quietEndMin   = 4 * 60;                             // 04:00 WIB
 const float         STABLE_VARIATION_PCT = 0.10f;              // Variasi <= 10%
-const unsigned long QUIET_LEAK_MS      = 5UL * 60UL * 1000UL;  // 5 menit
 const float         QUIET_FLOW_THRESHOLD = 1.0f;               // > 1.0 L/menit
-const int           QUIET_START_HOUR   = 1;                    // 01:00 WIB
-const int           QUIET_END_HOUR     = 4;                    // 04:00 WIB
 
 // Interval Pengiriman
 const unsigned long TELEMETRY_INTERVAL_MS = 10000UL; // 10 detik
@@ -82,6 +92,8 @@ String topicAlert;
 String topicStatus;
 String topicCmd;
 String topicAck;
+String topicConfig;
+String topicLive;
 
 // Status & Variabel Sistem
 volatile unsigned long pulseCount = 0;
@@ -103,6 +115,12 @@ unsigned long quietHoursFlowStartMs = 0;
 unsigned long lastTelemetryMillis = 0;
 unsigned long lastFlowCalcMillis = 0;
 unsigned long lastWifiCheckMillis = 0;
+unsigned long lastWifiBeginMillis = 0;
+unsigned long lastLedBlinkMillis = 0;
+bool wifiWasConnected = false;
+
+// Status yang belum terkirim karena offline (BOOT atau MANUAL_BUTTON).
+const char* pendingStatusSource = nullptr;
 
 // Button Debounce
 int lastButtonState = HIGH;
@@ -135,15 +153,22 @@ void saveValveState(bool isOpen) {
 // ==========================================
 void applyValveState(bool open) {
   valveIsOpen = open;
-  if (valveIsOpen) {
-    digitalWrite(PIN_RELAY_VALVE, VALVE_OPEN_SIGNAL);
-    digitalWrite(PIN_LED_GREEN, HIGH);
-    digitalWrite(PIN_LED_RED, LOW);
-  } else {
-    digitalWrite(PIN_RELAY_VALVE, VALVE_CLOSE_SIGNAL);
-    digitalWrite(PIN_LED_GREEN, LOW);
-    digitalWrite(PIN_LED_RED, HIGH);
+  digitalWrite(PIN_RELAY_VALVE, valveIsOpen ? VALVE_OPEN_SIGNAL : VALVE_CLOSE_SIGNAL);
+}
+
+// LED dipanggil tiap loop. Satu lampu, satu arti:
+// - Biru = internet: menyala diam saat WiFi dan MQTT tersambung, berkedip saat offline.
+// - Hijau / merah = valve: hijau saat terbuka, merah saat tertutup (online maupun offline).
+void updateLeds(unsigned long now) {
+  bool online = WiFi.status() == WL_CONNECTED && mqttClient.connected();
+  if (online) {
+    digitalWrite(PIN_LED_BLUE, HIGH);
+  } else if (now - lastLedBlinkMillis >= 300) {
+    lastLedBlinkMillis = now;
+    digitalWrite(PIN_LED_BLUE, !digitalRead(PIN_LED_BLUE));
   }
+  digitalWrite(PIN_LED_GREEN, valveIsOpen ? HIGH : LOW);
+  digitalWrite(PIN_LED_RED, valveIsOpen ? LOW : HIGH);
 }
 
 // ==========================================
@@ -165,21 +190,33 @@ bool getNtpTime(char* buffer, size_t maxLen) {
   return true;
 }
 
-int getLocalHourWIB() {
+// Menit sejak 00:00 WIB.
+int getLocalMinuteOfDayWIB() {
   time_t now;
   struct tm timeinfo;
   time(&now);
   // Tambah offset WIB (UTC+7) = 7 * 3600 detik
   time_t nowWib = now + (7 * 3600);
   gmtime_r(&nowWib, &timeinfo);
-  return timeinfo.tm_hour;
+  return timeinfo.tm_hour * 60 + timeinfo.tm_min;
+}
+
+// Rentang jam sepi boleh melewati tengah malam, mis. 22:00 sampai 05:00.
+bool isInQuietHours(int minuteOfDay) {
+  if (quietStartMin < quietEndMin) {
+    return minuteOfDay >= quietStartMin && minuteOfDay < quietEndMin;
+  }
+  return minuteOfDay >= quietStartMin || minuteOfDay < quietEndMin;
 }
 
 // ==========================================
 // PENGIRIMAN PESAN MQTT
 // ==========================================
 void sendTelemetry() {
-  if (!mqttClient.connected()) return;
+  if (!mqttClient.connected()) {
+    LOGF("[TELEMETRI] dilewati, MQTT belum tersambung (volume %.3f L ditahan)\n", deltaVolumeL);
+    return;
+  }
 
   char tsBuf[30];
   bool timeValid = getNtpTime(tsBuf, sizeof(tsBuf));
@@ -197,13 +234,27 @@ void sendTelemetry() {
 
   char jsonBuffer[256];
   serializeJson(doc, jsonBuffer);
-  mqttClient.publish(topicTelemetry.c_str(), jsonBuffer, false);
+  bool sent = mqttClient.publish(topicTelemetry.c_str(), jsonBuffer, false);
+  LOGF("[TELEMETRI] %s %s\n", sent ? "terkirim" : "GAGAL", jsonBuffer);
 
   // Reset delta volume setelah dipublish
   deltaVolumeL = 0.0f;
 }
 
+// Debit sekarang tiap 1 detik untuk tampilan aplikasi (CONTRACT.md 2.12).
+// Tidak disimpan backend dan tidak dikirim ulang saat offline.
+void sendLive() {
+  if (!mqttClient.connected()) return;
+  JsonDocument doc;
+  doc["flow_lpm"] = serialized(String(currentFlowRateLpm, 2));
+  doc["valve"] = valveIsOpen ? "OPEN" : "CLOSED";
+  char jsonBuffer[96];
+  serializeJson(doc, jsonBuffer);
+  mqttClient.publish(topicLive.c_str(), jsonBuffer, false);
+}
+
 void sendAlert(const char* ruleName) {
+  LOGF("[ALERT] aturan %s terpicu, debit %.2f L/menit, valve ditutup\n", ruleName, currentFlowRateLpm);
   // Sesuai PRD: valve langsung ditutup seketika oleh ESP32 sebelum kirim alert
   applyValveState(false);
   saveValveState(false);
@@ -230,7 +281,11 @@ void sendAlert(const char* ruleName) {
 }
 
 void sendStatus(const char* source) {
-  if (!mqttClient.connected()) return;
+  if (!mqttClient.connected()) {
+    // Dikirim begitu MQTT tersambung (lihat connectMqtt).
+    pendingStatusSource = source;
+    return;
+  }
 
   char tsBuf[30];
   bool timeValid = getNtpTime(tsBuf, sizeof(tsBuf));
@@ -264,9 +319,65 @@ void sendAck(uint32_t cmdId, const char* result) {
 }
 
 // ==========================================
+// AMBANG PER KAMAR DARI APLIKASI (CONTRACT.md 2.10)
+// ==========================================
+// "HH:MM" menjadi menit sejak 00:00. -1 bila formatnya salah.
+int parseMinuteOfDay(const char* text) {
+  int hour = -1;
+  int minute = -1;
+  if (sscanf(text, "%d:%d", &hour, &minute) != 2) return -1;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return -1;
+  return hour * 60 + minute;
+}
+
+void applyRuleConfig(byte* payload, unsigned int length) {
+  JsonDocument doc;
+  if (deserializeJson(doc, payload, length)) return;
+
+  unsigned long continuousSec = doc["continuous_sec"] | 0UL;
+  unsigned long stableSec = doc["stable_sec"] | 0UL;
+  unsigned long quietSec = doc["quiet_sec"] | 0UL;
+  int quietStart = parseMinuteOfDay(doc["quiet_start"] | "");
+  int quietEnd = parseMinuteOfDay(doc["quiet_end"] | "");
+  if (quietStart < 0 || quietEnd < 0 || quietStart == quietEnd) return;
+
+  const unsigned long minSec = 1UL;
+  const unsigned long maxSec = 86400UL;
+  if (continuousSec < minSec || continuousSec > maxSec ||
+      stableSec < minSec || stableSec > maxSec ||
+      quietSec < minSec || quietSec > maxSec) {
+    return;
+  }
+
+  continuousLeakMs = continuousSec * 1000UL;
+  stableLeakMs = stableSec * 1000UL;
+  quietLeakMs = quietSec * 1000UL;
+  prefs.putULong("cont_ms", continuousLeakMs);
+  prefs.putULong("stab_ms", stableLeakMs);
+  prefs.putULong("quiet_ms", quietLeakMs);
+  quietStartMin = quietStart;
+  quietEndMin = quietEnd;
+  prefs.putInt("quiet_start", quietStartMin);
+  prefs.putInt("quiet_end", quietEndMin);
+
+  LOGF("[CONFIG] terus=%lus stabil=%lus jam_sepi=%lus rentang=%02d:%02d-%02d:%02d\n",
+       continuousSec, stableSec, quietSec,
+       quietStartMin / 60, quietStartMin % 60, quietEndMin / 60, quietEndMin % 60);
+
+  // Hitung ulang dari awal supaya ambang baru berlaku penuh.
+  continuousFlowStartMs = 0;
+  stableFlowStartMs = 0;
+  quietHoursFlowStartMs = 0;
+}
+
+// ==========================================
 // MQTT CALLBACK (MENERIMA CMD DARI APLIKASI)
 // ==========================================
 void onMqttMessage(char* topic, byte* payload, unsigned int length) {
+  if (String(topic) == topicConfig) {
+    applyRuleConfig(payload, length);
+    return;
+  }
   if (String(topic) != topicCmd) return;
 
   JsonDocument doc;
@@ -277,6 +388,7 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
 
   uint32_t cmdId = doc["command_id"] | 0;
   const char* action = doc["action"] | "";
+  LOGF("[CMD] command_id=%u action=%s\n", cmdId, action);
 
   // Kontrak 2.5: Abaikan command_id yang sudah pernah dieksekusi, tapi tetap kirim ack
   if (cmdId == lastExecutedCommandId && cmdId != 0) {
@@ -317,7 +429,7 @@ void checkLeakRules(unsigned long now) {
   if (currentFlowRateLpm > 0.1f) {
     if (continuousFlowStartMs == 0) {
       continuousFlowStartMs = now;
-    } else if (now - continuousFlowStartMs >= CONTINUOUS_LEAK_MS) {
+    } else if (now - continuousFlowStartMs >= continuousLeakMs) {
       sendAlert("CONTINUOUS");
       continuousFlowStartMs = 0;
       return;
@@ -334,7 +446,7 @@ void checkLeakRules(unsigned long now) {
     } else {
       float diff = abs(currentFlowRateLpm - stableBaselineFlow);
       if (diff / stableBaselineFlow <= STABLE_VARIATION_PCT) {
-        if (now - stableFlowStartMs >= STABLE_LEAK_MS) {
+        if (now - stableFlowStartMs >= stableLeakMs) {
           sendAlert("STABLE");
           stableFlowStartMs = 0;
           return;
@@ -349,16 +461,15 @@ void checkLeakRules(unsigned long now) {
     stableFlowStartMs = 0;
   }
 
-  // 3. Aliran Jam Sepi (QUIET_HOURS): flow > 1.0 L/menit selama 5 menit pada jam 01:00 - 04:00 WIB
+  // 3. Aliran Jam Sepi (QUIET_HOURS): flow > 1.0 L/menit melewati batas pada rentang jam sepi kamar
   char dummyBuf[30];
   if (getNtpTime(dummyBuf, sizeof(dummyBuf))) {
-    int currentHourWib = getLocalHourWIB();
-    bool isQuietHours = (currentHourWib >= QUIET_START_HOUR && currentHourWib < QUIET_END_HOUR);
+    bool isQuietHours = isInQuietHours(getLocalMinuteOfDayWIB());
 
     if (isQuietHours && currentFlowRateLpm >= QUIET_FLOW_THRESHOLD) {
       if (quietHoursFlowStartMs == 0) {
         quietHoursFlowStartMs = now;
-      } else if (now - quietHoursFlowStartMs >= QUIET_LEAK_MS) {
+      } else if (now - quietHoursFlowStartMs >= quietLeakMs) {
         sendAlert("QUIET_HOURS");
         quietHoursFlowStartMs = 0;
         return;
@@ -385,6 +496,7 @@ void handleButton() {
       // Tekan 1x -> Membuka valve
       applyValveState(true);
       saveValveState(true);
+      LOGF("[TOMBOL] ditekan, valve dibuka\n");
       sendStatus("MANUAL_BUTTON");
     }
   }
@@ -395,23 +507,36 @@ void handleButton() {
 // ==========================================
 // KONEKSI WIFI & MQTT (TLS)
 // ==========================================
-void connectWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-
+// Tidak memblokir: loop tetap jalan (tombol, sensor, aturan bocor) saat
+// WiFi belum ada.
+void startWiFi() {
   WiFi.mode(WIFI_STA);
+  // Modem sleep bisa menunda paket dan memutus koneksi MQTT.
+  WiFi.setSleep(false);
+  WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  lastWifiBeginMillis = millis();
+}
 
-  unsigned long startAttempt = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 15000) {
-    digitalWrite(PIN_LED_BLUE, !digitalRead(PIN_LED_BLUE)); // Kedip cepat saat mencoba konek
-    delay(300);
-  }
+void handleWiFi(unsigned long now) {
+  bool connected = WiFi.status() == WL_CONNECTED;
 
-  if (WiFi.status() == WL_CONNECTED) {
-    digitalWrite(PIN_LED_BLUE, HIGH); // Biru menyala jika WiFi terhubung
+  if (connected && !wifiWasConnected) {
+    LOGF("[WIFI] tersambung ke %s, IP %s, sinyal %d dBm\n",
+         WIFI_SSID, WiFi.localIP().toString().c_str(), WiFi.RSSI());
     configTime(0, 0, NTP_SERVER1, NTP_SERVER2); // Sync NTP (UTC)
-  } else {
-    digitalWrite(PIN_LED_BLUE, LOW);
+  } else if (!connected && wifiWasConnected) {
+    LOGF("[WIFI] terputus, mencoba lagi\n");
+  }
+  wifiWasConnected = connected;
+  if (connected) return;
+
+  // Mulai ulang percobaan kalau 15 detik belum tersambung.
+  if (now - lastWifiBeginMillis >= 15000) {
+    LOGF("[WIFI] belum tersambung ke %s setelah 15 detik, mengulang\n", WIFI_SSID);
+    WiFi.disconnect();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    lastWifiBeginMillis = now;
   }
 }
 
@@ -425,9 +550,16 @@ void connectMqtt() {
   String clientId = "ESP32_SWM_" + String(MQTT_DEVICE_ID) + "_" + String(random(0xffff), HEX);
   if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
     mqttClient.subscribe(topicCmd.c_str(), 1); // QoS 1
-    digitalWrite(PIN_LED_BLUE, HIGH);
+    mqttClient.subscribe(topicConfig.c_str(), 1); // Retained: diterima lagi setiap tersambung
+    LOGF("[MQTT] tersambung ke %s:%d sebagai %s\n", MQTT_HOST, MQTT_PORT, clientId.c_str());
+    if (pendingStatusSource != nullptr) {
+      const char* source = pendingStatusSource;
+      pendingStatusSource = nullptr;
+      sendStatus(source);
+    }
   } else {
-    digitalWrite(PIN_LED_BLUE, LOW);
+    // -4 timeout, -2 gagal konek/TLS, 4 password salah, 5 tidak diizinkan
+    LOGF("[MQTT] gagal tersambung ke %s:%d, state=%d\n", MQTT_HOST, MQTT_PORT, mqttClient.state());
   }
 }
 
@@ -455,6 +587,13 @@ void setup() {
   // Default pertama kali = true (Normaly Closed valve standby terbuka saat normal)
   valveIsOpen = prefs.getBool("valve_open", true);
 
+  // Ambang kamar terakhir dari aplikasi
+  continuousLeakMs = prefs.getULong("cont_ms", continuousLeakMs);
+  stableLeakMs = prefs.getULong("stab_ms", stableLeakMs);
+  quietLeakMs = prefs.getULong("quiet_ms", quietLeakMs);
+  quietStartMin = prefs.getInt("quiet_start", quietStartMin);
+  quietEndMin = prefs.getInt("quiet_end", quietEndMin);
+
   // Terapkan status valve hasil restore NVS
   applyValveState(valveIsOpen);
 
@@ -464,17 +603,27 @@ void setup() {
   topicStatus    = "swm/" + String(MQTT_DEVICE_ID) + "/status";
   topicCmd       = "swm/" + String(MQTT_DEVICE_ID) + "/cmd";
   topicAck       = "swm/" + String(MQTT_DEVICE_ID) + "/ack";
+  topicConfig    = "swm/" + String(MQTT_DEVICE_ID) + "/config";
+  topicLive      = "swm/" + String(MQTT_DEVICE_ID) + "/live";
 
   // Konfigurasi MQTT Client
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
   mqttClient.setCallback(onMqttMessage);
   mqttClient.setBufferSize(512);
+  // Beri ruang untuk gangguan Wi-Fi sesaat (default PubSubClient 15 detik).
+  mqttClient.setKeepAlive(60);
 
-  // Sambungkan WiFi & MQTT
-  connectWiFi();
-  connectMqtt();
+  LOGF("\n[BOOT] Smart Water kamar %s, valve %s, msg_id %u\n",
+       MQTT_DEVICE_ID, valveIsOpen ? "OPEN" : "CLOSED", currentMsgId);
+  LOGF("[BOOT] ambang: terus=%lus stabil=%lus jam_sepi=%lus rentang=%02d:%02d-%02d:%02d\n",
+       continuousLeakMs / 1000, stableLeakMs / 1000, quietLeakMs / 1000,
+       quietStartMin / 60, quietStartMin % 60, quietEndMin / 60, quietEndMin % 60);
 
-  // CONTRACT.md 2.6: Setelah boot, kirim status dengan source: BOOT
+  // Sambungkan WiFi tanpa menunggu; MQTT menyusul di loop.
+  startWiFi();
+
+  // CONTRACT.md 2.6: Setelah boot, kirim status dengan source: BOOT.
+  // Belum online, jadi disimpan dan terkirim saat MQTT tersambung.
   sendStatus("BOOT");
 }
 
@@ -485,12 +634,8 @@ void loop() {
   unsigned long now = millis();
 
   // 1. Cek & Tangani Koneksi
-  if (WiFi.status() != WL_CONNECTED) {
-    if (now - lastWifiCheckMillis >= 5000) {
-      lastWifiCheckMillis = now;
-      connectWiFi();
-    }
-  } else {
+  handleWiFi(now);
+  if (WiFi.status() == WL_CONNECTED) {
     if (!mqttClient.connected()) {
       if (now - lastWifiCheckMillis >= 5000) {
         lastWifiCheckMillis = now;
@@ -503,6 +648,7 @@ void loop() {
 
   // 2. Baca Tombol Fisik (Debounced)
   handleButton();
+  updateLeds(now);
 
   // 3. Kalkulasi Debit & Volume Tiap 1 Detik
   if (now - lastFlowCalcMillis >= 1000) {
@@ -521,8 +667,15 @@ void loop() {
     float volumeCurrentSecond = currentFlowRateLpm * (secondsElapsed / 60.0f);
     deltaVolumeL += volumeCurrentSecond;
 
+    LOGF("[SENSOR] pulsa=%lu debit=%.2f L/menit vol=+%.3f L akumulasi=%.3f L valve=%s wifi=%s mqtt=%s\n",
+         pulses, currentFlowRateLpm, volumeCurrentSecond, deltaVolumeL,
+         valveIsOpen ? "OPEN" : "CLOSED",
+         WiFi.status() == WL_CONNECTED ? "OK" : "PUTUS",
+         mqttClient.connected() ? "OK" : "PUTUS");
+
     // Evaluasi Aturan Kebocoran Lokal
     checkLeakRules(now);
+    sendLive();
   }
 
   // 4. Publikasi Telemetri Tiap 10 Detik

@@ -7,8 +7,9 @@
 ///   --dart-define=API_TOKEN=<token>
 /// ```
 abstract final class Env {
-  /// `true` (default): data dari fixture kontrak, tanpa backend.
-  static const useMock = bool.fromEnvironment('USE_MOCK', defaultValue: true);
+  /// Default `false`: data asli dari backend. `true` hanya untuk pengembangan
+  /// layar tanpa backend. Dummy untuk presentasi ada di Kamar 2 (simulator).
+  static const useMock = bool.fromEnvironment('USE_MOCK');
 
   /// Skenario mock: standard, all-normal, offline, empty, no-ack.
   static const mockScenario = String.fromEnvironment(

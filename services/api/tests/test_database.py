@@ -105,9 +105,9 @@ class TestDatabaseModelsAndSeed(unittest.TestCase):
                 self.assertIn(table, table_names)
 
     def test_seeded_rooms_and_devices(self):
-        """Memverifikasi bahwa seeding menghasilkan 2 kamar dan 2 perangkat sesuai spesifikasi."""
+        """Memverifikasi bahwa seeding menghasilkan 3 kamar dan 3 perangkat sesuai spesifikasi."""
         rooms = self.db.query(Room).order_by(Room.sort_order).all()
-        self.assertEqual(len(rooms), 2)
+        self.assertEqual(len(rooms), 3)
 
         # Kamar 1
         kamar1 = rooms[0]
@@ -122,10 +122,17 @@ class TestDatabaseModelsAndSeed(unittest.TestCase):
         kamar2 = rooms[1]
         self.assertEqual(kamar2.name, "Kamar 2")
         self.assertEqual(kamar2.sort_order, 2)
-        self.assertTrue(kamar2.is_simulated)
+        self.assertFalse(kamar2.is_simulated)
         self.assertIsNotNone(kamar2.device)
         self.assertEqual(kamar2.device.id, "2")
         self.assertEqual(kamar2.device.valve_state, ValveState.OPEN)
+
+        # Kamar 3 (simulator Mode demo)
+        kamar3 = rooms[2]
+        self.assertEqual(kamar3.name, "Kamar 3")
+        self.assertEqual(kamar3.sort_order, 3)
+        self.assertTrue(kamar3.is_simulated)
+        self.assertEqual(kamar3.device.id, "3")
 
     def test_seeded_rule_params(self):
         """Memverifikasi 9 parameter aturan default dan fungsi helper konversi tipenya."""

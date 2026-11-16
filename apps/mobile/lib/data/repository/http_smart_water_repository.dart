@@ -101,4 +101,45 @@ class HttpSmartWaterRepository implements SmartWaterRepository {
       throw e.error is ApiException ? e.error! : ApiException.fromDio(e);
     }
   }
+
+  @override
+  Future<RoomRules> getRoomRules(int roomId) =>
+      _get('/v1/rooms/$roomId/rules', (j) => RoomRules.fromJson(_map(j)));
+
+  @override
+  Future<RoomRules> updateRoomRules(RoomRules rules) async {
+    try {
+      final res = await _dio.put<dynamic>(
+        '/v1/rooms/${rules.roomId}/rules',
+        data: rules.toJson(),
+      );
+      return RoomRules.fromJson(_map(res.data));
+    } on DioException catch (e) {
+      throw e.error is ApiException ? e.error! : ApiException.fromDio(e);
+    }
+  }
+
+  @override
+  Future<void> setDemoScenario(int roomId, DemoScenarioKind scenario) async {
+    try {
+      await _dio.post<dynamic>(
+        '/v1/rooms/$roomId/demo-scenario',
+        data: {'scenario': scenario.wire},
+      );
+    } on DioException catch (e) {
+      throw e.error is ApiException ? e.error! : ApiException.fromDio(e);
+    }
+  }
+
+  @override
+  Future<LiveFlow> getLiveFlow(int roomId) =>
+      _get('/v1/rooms/$roomId/live', (j) => LiveFlow.fromJson(_map(j)));
+
+  @override
+  Future<FlowSeries> getFlow(int roomId, {required String date, int? hour}) =>
+      _get(
+        '/v1/rooms/$roomId/flow',
+        (j) => FlowSeries.fromJson(_map(j)),
+        query: {'date': date, 'hour': ?hour},
+      );
 }

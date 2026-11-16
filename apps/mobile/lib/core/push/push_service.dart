@@ -6,7 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/models/models.dart';
 import '../../data/providers/providers.dart';
+import '../../data/repository/smart_water_repository.dart';
 import '../router/app_router.dart';
 
 /// Push kebocoran (US-12, US-13, CONTRACT.md bagian 4).
@@ -69,11 +71,16 @@ String pushRoute(Map<String, dynamic> data) {
   return '${AppRoutes.alerts}?alert=${data['alert_id']}';
 }
 
+/// Alert yang sudah tampil sebagai notifikasi (dari FCM atau [AlertWatcher]),
+/// supaya alert yang sama tidak berbunyi dua kali.
+final _notifiedAlertIds = <int>{};
+
 /// Tampilkan notifikasi dari payload FCM `data` (semua nilai string).
 Future<void> _showFromData(Map<String, dynamic> data) async {
   final type = data['type'];
   if (type != 'LEAK' && type != 'ANOMALY') return; // ACTIVITY tidak di-push.
   final alertId = int.tryParse('${data['alert_id']}') ?? 0;
+  if (alertId != 0 && !_notifiedAlertIds.add(alertId)) return;
   await _plugin.show(
     id: alertId,
     title: data['title'] as String?,
@@ -91,23 +98,101 @@ Future<void> _showFromData(Map<String, dynamic> data) async {
   );
 }
 
-/// Mode demo: notifikasi kebocoran lokal dengan isi sama seperti push
-/// backend (CONTRACT.md 4.2), muncul setelah [delay] supaya pengguna sempat
-/// keluar dari aplikasi. Mengetuknya membuka Detail Kamar [roomId].
-Future<void> showDemoLeakNotification({
-  required int alertId,
-  required int roomId,
-  required String roomName,
-  Duration delay = const Duration(seconds: 5),
-}) async {
-  await Future<void>.delayed(delay);
-  await _showFromData({
-    'type': 'LEAK',
-    'alert_id': '$alertId',
-    'room_id': '$roomId',
-    'title': 'Kebocoran terdeteksi',
-    'body': '$roomName: aliran stabil terdeteksi. Valve sudah ditutup.',
-  });
+/// Payload notifikasi dari alert REST, isinya sama dengan push backend
+/// (CONTRACT.md 4.2, `format_alert_payload` di services/api).
+Map<String, String> alertPushData(Alert a) {
+  final room = a.roomName;
+  final String title;
+  final String body;
+  if (a.type == AlertType.leak) {
+    title = 'Kebocoran terdeteksi';
+    body = switch (a.rule) {
+      AlertRule.continuous =>
+        '$room: aliran terus menerus. Valve sudah ditutup.',
+      AlertRule.stable =>
+        '$room: aliran stabil terdeteksi. Valve sudah ditutup.',
+      AlertRule.quietHours =>
+        '$room: aliran di jam sepi terdeteksi. Valve sudah ditutup.',
+      _ => 'Kebocoran di $room, valve ditutup.',
+    };
+  } else {
+    title = 'Anomali pemakaian terdeteksi';
+    final ratio = a.detail['ratio'];
+    body = ratio is num
+        ? 'Pemakaian $room hari ini '
+              '${ratio.toStringAsFixed(1).replaceAll('.', ',')}× rata-rata.'
+        : 'Pemakaian $room hari ini melebihi rata-rata.';
+  }
+  return {
+    'type': a.type == AlertType.leak ? 'LEAK' : 'ANOMALY',
+    'alert_id': '${a.id}',
+    'room_id': '${a.roomId}',
+    'room_name': room,
+    'title': title,
+    'body': body,
+  };
+}
+
+/// Pemantau alert untuk semua kamar (alat asli maupun simulator).
+///
+/// Push FCM butuh Firebase di aplikasi dan *service account* di backend.
+/// Bila salah satunya belum ada, kebocoran tetap harus memberi notifikasi,
+/// jadi aplikasi ikut memeriksa alert OPEN tiap [interval], termasuk saat
+/// di latar belakang selama prosesnya masih hidup. Alert yang sudah ada saat
+/// pemantau mulai tidak dinotifikasi ulang.
+class AlertWatcher {
+  AlertWatcher(
+    this._repository, {
+    this.interval = const Duration(seconds: 5),
+    Future<void> Function(Map<String, String> data)? show,
+  }) : _show = show ?? _showFromData;
+
+  final SmartWaterRepository Function() _repository;
+  final Duration interval;
+  final Future<void> Function(Map<String, String> data) _show;
+  final _seen = <int>{};
+  bool _primed = false;
+  bool _busy = false;
+  Timer? _timer;
+
+  void start() {
+    _timer ??= Timer.periodic(interval, (_) => check());
+    check();
+  }
+
+  void stop() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  /// Satu pemeriksaan. Mengembalikan alert yang baru dinotifikasi.
+  Future<List<Alert>> check() async {
+    if (_busy) return const [];
+    _busy = true;
+    try {
+      final page = await _repository().getAlerts(
+        status: AlertStatus.open,
+        limit: 20,
+      );
+      final fresh = page.items
+          .where((a) => a.type == AlertType.leak || a.type == AlertType.anomaly)
+          .where((a) => _seen.add(a.id))
+          .toList();
+      if (!_primed) {
+        _primed = true;
+        return const [];
+      }
+      for (final alert in fresh) {
+        await _show(alertPushData(alert));
+      }
+      return fresh;
+    } catch (e) {
+      debugPrint('Pemantau alert gagal memeriksa: $e');
+      return const [];
+    } finally {
+      _busy = false;
+    }
+  }
 }
 
 /// Handler pesan saat aplikasi di latar belakang atau tertutup.
@@ -172,6 +257,9 @@ class PushService {
       // sekali; setelah ditolak, Beranda menampilkan baris pengingat.
       await requestNotificationPermission();
       _container.invalidate(notificationsEnabledProvider);
+
+      // Notifikasi kebocoran untuk semua kamar, dengan atau tanpa FCM.
+      AlertWatcher(() => _container.read(repositoryProvider)).start();
 
       final options = firebaseOptions;
       if (options == null) {

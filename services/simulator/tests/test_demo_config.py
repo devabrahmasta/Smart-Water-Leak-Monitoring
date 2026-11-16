@@ -36,5 +36,22 @@ class TestDemoConfig(unittest.TestCase):
         self.assertEqual(device.scenario.ticks_to_trigger, 3)
 
 
+class TestLive(unittest.TestCase):
+    def test_live_follows_last_flow_and_valve(self):
+        device = _device()
+        self.assertIsNone(device.publish_live())
+        device.state.set_valve("OPEN")
+        device.scenario = device.scenario.__class__()
+        device.last_flow = 6.4
+        self.assertEqual(device.publish_live(), {"flow_lpm": 6.4, "valve": "OPEN"})
+        device.state.set_valve("CLOSED")
+        self.assertEqual(device.publish_live(), {"flow_lpm": 0.0, "valve": "CLOSED"})
+
+    def test_live_silent_when_offline(self):
+        device = _device(scenario_name="offline")
+        device.last_flow = 1.0
+        self.assertIsNone(device.publish_live())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -7,27 +7,39 @@
   "properties": {
     "continuous_sec": {
       "type": "integer",
-      "minimum": 15,
+      "minimum": 1,
       "maximum": 86400,
       "description": "Aturan aliran terus menerus, detik"
     },
     "stable_sec": {
       "type": "integer",
-      "minimum": 15,
+      "minimum": 1,
       "maximum": 86400,
       "description": "Aturan aliran stabil, detik"
     },
     "quiet_sec": {
       "type": "integer",
-      "minimum": 15,
+      "minimum": 1,
       "maximum": 86400,
       "description": "Aturan aliran jam sepi, detik"
+    },
+    "quiet_start": {
+      "type": "string",
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+      "description": "Mulai jam sepi, WIB"
+    },
+    "quiet_end": {
+      "type": "string",
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+      "description": "Selesai jam sepi, WIB"
     }
   },
   "required": [
     "continuous_sec",
     "stable_sec",
-    "quiet_sec"
+    "quiet_sec",
+    "quiet_start",
+    "quiet_end"
   ],
   "additionalProperties": false
 }

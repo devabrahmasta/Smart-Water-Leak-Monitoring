@@ -45,8 +45,8 @@ firmware/esp32/build/
 infra/data/
 
 # ---- Simulator state ----
-.simulator_state.json
-services/simulator/.simulator_state.json
+.simulator_state*.json
+services/simulator/.simulator_state*.json
 
 # ---- Editor & OS ----
 .vscode/*
@@ -55,3 +55,6 @@ services/simulator/.simulator_state.json
 *.iml
 .DS_Store
 Thumbs.db
+
+# ---- Log serial ESP32 ----
+logs/

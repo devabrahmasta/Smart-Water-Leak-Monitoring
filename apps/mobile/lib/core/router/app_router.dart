@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/alerts/alerts_page.dart';
 import '../../features/demo/demo_page.dart';
+import '../../features/flow/flow_page.dart';
 import '../../features/gallery/component_gallery_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/room_detail/room_detail_page.dart';
@@ -34,6 +35,13 @@ GoRoute _roomRoute(String path, String backTo) => GoRoute(
     roomId: int.parse(state.pathParameters['id']!),
     backTo: backTo,
   ),
+  routes: [
+    GoRoute(
+      path: 'aliran',
+      builder: (context, state) =>
+          FlowPage(roomId: int.parse(state.pathParameters['id']!)),
+    ),
+  ],
 );
 
 GoRouter createRouter({String initialLocation = AppRoutes.home}) => GoRouter(

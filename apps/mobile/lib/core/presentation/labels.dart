@@ -126,30 +126,52 @@ String roomSummary(Room r, {DateTime? now}) {
   }
 }
 
-/// Penjelasan kebocoran di Detail Kamar (aturan CONTRACT.md 2.9) dalam
-/// bahasa sehari-hari.
-({String why, List<String> steps}) leakExplanation(Alert a) {
+/// "5 detik", "45 menit", "1 jam 30 menit", "1 menit 30 detik".
+String formatDuration(int seconds) {
+  final hours = seconds ~/ 3600;
+  final minutes = seconds % 3600 ~/ 60;
+  final rest = seconds % 60;
+  return [
+    if (hours > 0) '$hours jam',
+    if (minutes > 0) '$minutes menit',
+    if (rest > 0 || seconds == 0) '$rest detik',
+  ].join(' ');
+}
+
+/// `01:00`, `04:00` menjadi "01.00 sampai 04.00".
+String formatQuietRange(String start, String end) =>
+    '${start.replaceAll(':', '.')} sampai ${end.replaceAll(':', '.')}';
+
+/// Penjelasan kebocoran di Detail Kamar. Durasi memakai ambang kamar itu,
+/// atau nilai bawaan CONTRACT.md 2.9 bila belum dimuat.
+({String why, List<String> steps}) leakExplanation(
+  Alert a, {
+  RoomRules? rules,
+}) {
   final minutes = a.detail['duration_min'];
   final flow = a.detail['flow_lpm'];
   final flowText = flow is num ? ' sekitar ${formatFlow(flow)}' : '';
+  String limit(int? sec, int fallback) => minutes is num
+      ? formatDuration((minutes * 60).round())
+      : formatDuration(sec ?? fallback);
   final why = switch (a.rule) {
     AlertRule.continuous =>
-      'Air mengalir$flowText tanpa berhenti selama '
-          '${minutes ?? 45} menit. Pemakaian biasa (mandi, mencuci) tidak '
-          'pernah selama itu tanpa jeda.',
+      'Air mengalir$flowText tanpa berhenti melewati batas '
+          '${limit(rules?.continuousSec, 2700)} yang diatur untuk kamar ini.',
     AlertRule.stable =>
-      'Air mengalir$flowText dengan deras yang sama terus menerus selama '
-          '${minutes ?? 5} menit. Pola rata seperti ini biasanya keran yang '
-          'lupa ditutup atau pipa bocor.',
+      'Air mengalir$flowText dengan deras yang sama melewati batas '
+          '${limit(rules?.stableSec, 300)} yang diatur untuk kamar ini. Bisa '
+          'jadi keran belum tertutup atau pipa bocor, bisa juga pemakaian '
+          'yang memang lama.',
     AlertRule.quietHours =>
-      'Ada air mengalir$flowText selama ${minutes ?? 5} menit antara jam '
-          '01.00 dan 04.00, saat penghuni biasanya tidur.',
+      'Ada air mengalir$flowText melewati batas '
+          '${limit(rules?.quietSec, 300)} pada jam sepi '
+          '${formatQuietRange(rules?.quietStart ?? '01:00', rules?.quietEnd ?? '04:00')}.',
     AlertRule.manualButton => 'Air dihentikan lewat tombol di alat kamar.',
     AlertRule.dailyRatio => 'Pemakaian hari ini jauh di atas biasanya.',
   };
   return (
-    why:
-        '$why Supaya air tidak terbuang, alat menghentikan air secara otomatis.',
+    why: '$why Untuk berjaga-jaga, alat menghentikan air secara otomatis.',
     steps: const [
       'Cek keran kamar mandi, wastafel, dan kloset. Pastikan semua tertutup.',
       'Lihat pipa dan lantai, apakah ada rembesan atau genangan.',

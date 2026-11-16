@@ -32,7 +32,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2, paho-mqtt, APSc
 3. Migrasi database:
    ```bash
    alembic upgrade head
-   python app/seed.py
+   python -m app.seed
    ```
 4. Menjalankan REST API Server (beserta APScheduler lifespan):
    ```bash

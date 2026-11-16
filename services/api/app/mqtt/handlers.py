@@ -19,6 +19,7 @@ from app.models.device import Device, ValveState
 from app.models.telemetry import Telemetry
 from app.models.alert import Alert, AlertType, AlertRule, AlertStatus, AlertResolvedBy
 from app.models.command import ValveCommand, CommandAction, CommandSource, CommandStatus
+from app.models.device_live import DeviceLive
 from app.mqtt.validator import validate_payload
 from app.notify.dispatcher import dispatch_alert_notification
 
@@ -139,6 +140,23 @@ def handle_alert(db: Session, device_id: str, payload: Dict[str, Any]) -> Ingest
         logger.warning(err)
         return IngestResult(success=False, error=err)
 
+    # Pesan QoS 1 bisa terkirim ulang: msg_id yang sama tidak boleh jadi alert baru.
+    msg_id = int(payload["msg_id"])
+    recent_leaks = (
+        db.query(Alert)
+        .filter(Alert.room_id == device.room_id, Alert.type == AlertType.LEAK)
+        .order_by(Alert.id.desc())
+        .limit(20)
+        .all()
+    )
+    if any((alert.detail or {}).get("msg_id") == msg_id for alert in recent_leaks):
+        logger.info(f"Duplicate alert ignored: device={device_id}, msg_id={msg_id}")
+        return IngestResult(
+            success=True,
+            is_duplicate=True,
+            message=f"Pesan duplikat diabaikan: {msg_id}",
+        )
+
     now_utc = datetime.now(timezone.utc)
     device_ts = _parse_timestamp(payload.get("ts"), now_utc)
     rule_enum = AlertRule(payload["rule"])
@@ -165,9 +183,19 @@ def handle_alert(db: Session, device_id: str, payload: Dict[str, Any]) -> Ingest
     try:
         db.commit()
         db.refresh(alert_record)
+        logger.info(
+            f"[device {device_id}] KEBOCORAN {rule_enum.value} alert_id={alert_record.id} "
+            f"room_id={device.room_id} flow={payload['flow_lpm']} L/menit, valve CLOSED"
+        )
         # Kirim notifikasi push ke pemilik (R-08 / K1)
         try:
-            dispatch_alert_notification(db, alert_record)
+            notif = dispatch_alert_notification(db, alert_record)
+            if notif is not None:
+                outcome = notif.last_error or "terkirim"
+                logger.info(
+                    f"[device {device_id}] notifikasi alert_id={alert_record.id}: "
+                    f"{outcome} (percobaan {notif.attempts})"
+                )
         except Exception as notify_err:
             logger.error(f"Gagal mengirim notifikasi push alert {alert_record.id}: {notify_err}")
         return IngestResult(success=True)
@@ -334,6 +362,37 @@ def handle_ack(db: Session, device_id: str, payload: Dict[str, Any]) -> IngestRe
         return IngestResult(success=False, error=err)
 
 
+def handle_live(db: Session, device_id: str, payload: Dict[str, Any]) -> IngestResult:
+    """
+    Debit sekarang tiap 1 detik (CONTRACT.md 2.12). Hanya nilai terakhir yang
+    disimpan; volume tetap dihitung dari telemetry. Juga menandai perangkat online.
+    """
+    is_valid, err_msg = validate_payload("live", payload)
+    if not is_valid:
+        return IngestResult(success=False, error=err_msg)
+
+    device = db.query(Device).filter_by(id=device_id).first()
+    if not device:
+        return IngestResult(success=False, error=f"Perangkat tidak terdaftar: {device_id}")
+
+    now_utc = datetime.now(timezone.utc)
+    live = db.query(DeviceLive).filter_by(device_id=device_id).first()
+    if live is None:
+        live = DeviceLive(device_id=device_id)
+        db.add(live)
+    live.flow_lpm = float(payload["flow_lpm"])
+    live.valve = payload["valve"]
+    live.updated_at = now_utc
+    device.last_seen_at = now_utc
+
+    try:
+        db.commit()
+        return IngestResult(success=True)
+    except Exception as e:
+        db.rollback()
+        return IngestResult(success=False, error=f"Gagal menyimpan live: {e}")
+
+
 def route_mqtt_message(db: Session, topic: str, raw_payload: bytes) -> IngestResult:
     """
     Rute pesan MQTT berdasarkan format topik swm/{device_id}/{message_type}.
@@ -370,6 +429,8 @@ def route_mqtt_message(db: Session, topic: str, raw_payload: bytes) -> IngestRes
         return handle_status(db, device_id, payload)
     elif msg_type == "ack":
         return handle_ack(db, device_id, payload)
+    elif msg_type == "live":
+        return handle_live(db, device_id, payload)
     else:
         err = f"Topik tidak dikenali: {msg_type}"
         logger.warning(f"Pesan pada topik '{topic}' diabaikan: {err}")

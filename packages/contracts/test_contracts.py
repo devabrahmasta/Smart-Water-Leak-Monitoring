@@ -33,6 +33,7 @@ class TestMQTTContracts(unittest.TestCase):
             "ack": load_json(SCHEMAS_DIR / "ack.json"),
             "config": load_json(SCHEMAS_DIR / "config.json"),
             "demo": load_json(SCHEMAS_DIR / "demo.json"),
+            "live": load_json(SCHEMAS_DIR / "live.json"),
         }
 
         # Pastikan seluruh skema adalah Draft7Validator yang valid
@@ -77,10 +78,21 @@ class TestMQTTContracts(unittest.TestCase):
         validate(instance=load_json(FIXTURES_DIR / "config.json"), schema=self.schemas["config"])
         validate(instance=load_json(FIXTURES_DIR / "demo_leak_stable.json"), schema=self.schemas["demo"])
 
+    def test_live_fixture(self):
+        validate(instance=load_json(FIXTURES_DIR / "live.json"), schema=self.schemas["live"])
+        with self.assertRaises(ValidationError):
+            validate(instance={"flow_lpm": -1, "valve": "OPEN"}, schema=self.schemas["live"])
+
     def test_config_rejects_too_short(self):
         with self.assertRaises(ValidationError):
             validate(
-                instance={"continuous_sec": 5, "stable_sec": 300, "quiet_sec": 300},
+                instance={
+                    "continuous_sec": 0,
+                    "stable_sec": 300,
+                    "quiet_sec": 300,
+                    "quiet_start": "01:00",
+                    "quiet_end": "04:00",
+                },
                 schema=self.schemas["config"],
             )
 

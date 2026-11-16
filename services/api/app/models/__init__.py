@@ -18,6 +18,7 @@ from app.models.command import (
 from app.models.rule_param import RuleParam
 from app.models.notification import PushToken, Notification
 from app.models.room_rule import RoomRule
+from app.models.device_live import DeviceLive
 
 __all__ = [
     "Room",
@@ -38,6 +39,7 @@ __all__ = [
     "RuleParam",
     "PushToken",
     "RoomRule",
+    "DeviceLive",
     "Notification",
 ]
 

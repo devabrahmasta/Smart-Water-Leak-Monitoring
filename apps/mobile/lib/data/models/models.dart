@@ -331,3 +331,137 @@ List<ValveCommand> commandsFromJson(Object? raw) {
 T parseEnum<T extends Enum>(List<T> values, Object? raw) => _enum(values, raw);
 T? parseEnumOrNull<T extends Enum>(List<T> values, Object? raw) =>
     _enumOrNull(values, raw);
+
+/// Ambang aturan kebocoran satu kamar: durasi dalam detik, jam sepi WIB
+/// `HH:MM` (`GET/PUT /v1/rooms/{id}/rules`).
+class RoomRules {
+  const RoomRules({
+    required this.roomId,
+    required this.continuousSec,
+    required this.stableSec,
+    required this.quietSec,
+    required this.quietStart,
+    required this.quietEnd,
+  });
+
+  factory RoomRules.fromJson(Map<String, dynamic> j) => RoomRules(
+    roomId: j['room_id'] as int,
+    continuousSec: j['continuous_sec'] as int,
+    stableSec: j['stable_sec'] as int,
+    quietSec: j['quiet_sec'] as int,
+    quietStart: j['quiet_start'] as String,
+    quietEnd: j['quiet_end'] as String,
+  );
+
+  /// Batas nilai sesuai CONTRACT.md 2.10.
+  static const minSec = 1;
+  static const maxSec = 86400;
+
+  final int roomId;
+  final int continuousSec;
+  final int stableSec;
+  final int quietSec;
+  final String quietStart;
+  final String quietEnd;
+
+  RoomRules copyWith({
+    int? continuousSec,
+    int? stableSec,
+    int? quietSec,
+    String? quietStart,
+    String? quietEnd,
+  }) => RoomRules(
+    roomId: roomId,
+    continuousSec: continuousSec ?? this.continuousSec,
+    stableSec: stableSec ?? this.stableSec,
+    quietSec: quietSec ?? this.quietSec,
+    quietStart: quietStart ?? this.quietStart,
+    quietEnd: quietEnd ?? this.quietEnd,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'continuous_sec': continuousSec,
+    'stable_sec': stableSec,
+    'quiet_sec': quietSec,
+    'quiet_start': quietStart,
+    'quiet_end': quietEnd,
+  };
+}
+
+/// Skenario simulator Kamar 3 (`POST /v1/rooms/{id}/demo-scenario`).
+enum DemoScenarioKind {
+  normal('NORMAL'),
+  leakContinuous('LEAK_CONTINUOUS'),
+  leakStable('LEAK_STABLE'),
+  leakQuietHours('LEAK_QUIET_HOURS'),
+  offline('OFFLINE'),
+  noAck('NO_ACK');
+
+  const DemoScenarioKind(this.wire);
+
+  final String wire;
+}
+
+/// Debit sekarang (`GET /v1/rooms/{id}/live`). [flowLpm] null bila alat
+/// tidak mengirim `live` dalam 5 detik terakhir.
+class LiveFlow {
+  const LiveFlow({required this.roomId, this.flowLpm, this.valve});
+
+  factory LiveFlow.fromJson(Map<String, dynamic> j) => LiveFlow(
+    roomId: j['room_id'] as int,
+    flowLpm: _numOrNull(j['flow_lpm']),
+    valve: j['valve'] == null ? null : _enum(ValveState.values, j['valve']),
+  );
+
+  final int roomId;
+  final double? flowLpm;
+  final ValveState? valve;
+}
+
+/// Satu titik grafik aliran: rata-rata dan tertinggi dalam L/menit.
+class FlowPoint {
+  const FlowPoint({
+    required this.label,
+    required this.avgLpm,
+    required this.maxLpm,
+  });
+
+  factory FlowPoint.fromJson(Map<String, dynamic> j) => FlowPoint(
+    label: j['label'] as String,
+    avgLpm: _num(j['avg_lpm']),
+    maxLpm: _num(j['max_lpm']),
+  );
+
+  /// `07` (jam) atau `05` (menit).
+  final String label;
+  final double avgLpm;
+  final double maxLpm;
+}
+
+/// `GET /v1/rooms/{id}/flow`: 24 titik per jam, atau 60 titik per menit bila
+/// [hour] diisi.
+class FlowSeries {
+  const FlowSeries({
+    required this.roomId,
+    required this.date,
+    required this.hour,
+    required this.points,
+  });
+
+  factory FlowSeries.fromJson(Map<String, dynamic> j) => FlowSeries(
+    roomId: j['room_id'] as int,
+    date: j['date'] as String,
+    hour: j['hour'] as int?,
+    points: [
+      for (final p in j['series'] as List)
+        FlowPoint.fromJson(p as Map<String, dynamic>),
+    ],
+  );
+
+  final int roomId;
+
+  /// `2026-11-13`, hari WIB.
+  final String date;
+  final int? hour;
+  final List<FlowPoint> points;
+}

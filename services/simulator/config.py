@@ -1,5 +1,5 @@
 """
-Konfigurasi Simulator Kamar Dummy (device_id=2).
+Konfigurasi Simulator Kamar Dummy (Kamar 3 Mode demo, atau pengganti ESP32 saat uji).
 """
 
 from pathlib import Path
@@ -26,8 +26,20 @@ class SimulatorSettings(BaseSettings):
     SIM_MQTT_USERNAME: str = "2"
     SIM_MQTT_PASSWORD: str = "sim_dev_pass"
 
+    # Kredensial Simulator Kamar 3 (username = device_id "3")
+    SIM3_MQTT_PASSWORD: str = "sim3_dev_pass"
+
     # Interval Telemetri (detik)
     TELEMETRY_INTERVAL_SEC: float = 10.0
+
+
+def mqtt_credentials(device_id: str) -> tuple[str, str]:
+    """Username dan password broker per perangkat simulator."""
+    if device_id == "3":
+        return "3", settings.SIM3_MQTT_PASSWORD
+    if device_id == settings.SIM_DEVICE_ID:
+        return settings.SIM_MQTT_USERNAME, settings.SIM_MQTT_PASSWORD
+    return device_id, settings.SIM_MQTT_PASSWORD
 
 
 settings = SimulatorSettings()

@@ -51,6 +51,12 @@ DNS.1 = localhost
 DNS.2 = host.docker.internal
 IP.1 = 127.0.0.1
 IP.2 = 0.0.0.0
+IP.3 = 192.168.1.114
+DNS.3 = 192.168.1.114
+IP.4 = 10.129.156.5
+DNS.4 = 10.129.156.5
+IP.5 = 10.227.134.5
+DNS.5 = 10.227.134.5
 "@
 
 $caCnf | Out-File -FilePath "$certDir/ca.cnf" -Encoding ascii
@@ -83,6 +89,7 @@ $mPath = (Resolve-Path $mosquittoDir).Path.Replace("\", "/")
 docker run --rm -v "${mPath}:/m" eclipse-mosquitto:2 mosquitto_passwd -c -b /m/passwd backend backend_dev_pass
 docker run --rm -v "${mPath}:/m" eclipse-mosquitto:2 mosquitto_passwd -b /m/passwd 1 device1_dev_pass
 docker run --rm -v "${mPath}:/m" eclipse-mosquitto:2 mosquitto_passwd -b /m/passwd 2 sim_dev_pass
+docker run --rm -v "${mPath}:/m" eclipse-mosquitto:2 mosquitto_passwd -b /m/passwd 3 sim3_dev_pass
 docker run --rm --entrypoint sh -v "${mPath}:/m" eclipse-mosquitto:2 -c "chmod 644 /m/passwd"
 
 Write-Host "==> Setup selesai! Jalankan 'docker compose -f infra/docker-compose.yml --env-file .env up -d' untuk memulai."

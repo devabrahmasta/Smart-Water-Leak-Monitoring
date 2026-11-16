@@ -24,6 +24,9 @@ from app.models.usage import DailyUsage, MonthlyUsage
 from app.models.alert import Alert, AlertType, AlertStatus, AlertResolvedBy
 from app.models.device import ValveState
 from app.models.room_rule import RoomRule
+from app.models.device_live import DeviceLive
+from app.models.telemetry import Telemetry
+from app.api.v1.helpers import WIB_TZ
 from app.models.rule_param import RuleParam
 from app.models.command import ValveCommand
 from app.schemas.room import (
@@ -229,6 +232,11 @@ def _default_sec(db: Session, key: str, fallback_min: int) -> int:
     return (param.as_int() if param else fallback_min) * 60
 
 
+def _default_str(db: Session, key: str, fallback: str) -> str:
+    param = db.query(RuleParam).filter(RuleParam.key == key).first()
+    return param.as_str() if param else fallback
+
+
 def _rules_response(db: Session, room_id: int) -> RoomRulesResponse:
     rule = db.query(RoomRule).filter(RoomRule.room_id == room_id).first()
     if rule:
@@ -237,12 +245,16 @@ def _rules_response(db: Session, room_id: int) -> RoomRulesResponse:
             continuous_sec=rule.continuous_sec,
             stable_sec=rule.stable_sec,
             quiet_sec=rule.quiet_sec,
+            quiet_start=rule.quiet_start,
+            quiet_end=rule.quiet_end,
         )
     return RoomRulesResponse(
         room_id=room_id,
         continuous_sec=_default_sec(db, "leak_duration_min", 45),
         stable_sec=_default_sec(db, "stable_duration_min", 5),
         quiet_sec=_default_sec(db, "night_duration_min", 5),
+        quiet_start=_default_str(db, "quiet_start", "01:00"),
+        quiet_end=_default_str(db, "quiet_end", "04:00"),
     )
 
 
@@ -278,6 +290,8 @@ def update_room_rules(
         rule.continuous_sec = body.continuous_sec
         rule.stable_sec = body.stable_sec
         rule.quiet_sec = body.quiet_sec
+        rule.quiet_start = body.quiet_start
+        rule.quiet_end = body.quiet_end
     db.commit()
 
     if room.device:
@@ -330,3 +344,95 @@ def set_demo_scenario(
             f"swm/{room.device.id}/demo", {"scenario": body.scenario.value}, qos=1
         )
     return {"scenario": body.scenario.value}
+
+
+LIVE_STALE_SEC = 5.0
+
+
+@router.get(
+    "/{room_id}/live",
+    dependencies=[Depends(verify_owner_token)],
+    summary="Debit sekarang dari topik live (null bila lebih dari 5 detik)",
+)
+def get_room_live(room_id: int, db: Session = Depends(get_db)):
+    room = _get_room_or_404(db, room_id)
+    live = (
+        db.query(DeviceLive).filter_by(device_id=room.device.id).first()
+        if room.device
+        else None
+    )
+    now_utc = datetime.now(timezone.utc)
+    fresh = False
+    if live is not None:
+        updated = live.updated_at
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        fresh = (now_utc - updated).total_seconds() <= LIVE_STALE_SEC
+    return {
+        "room_id": room_id,
+        "flow_lpm": round(live.flow_lpm, 2) if fresh else None,
+        "valve": live.valve if fresh else None,
+        "at": format_iso_utc(live.updated_at) if live is not None else None,
+    }
+
+
+@router.get(
+    "/{room_id}/flow",
+    dependencies=[Depends(verify_owner_token)],
+    summary="Debit rata-rata dan tertinggi per jam, atau per menit dalam satu jam",
+)
+def get_room_flow(
+    room_id: int,
+    date_wib: Optional[date] = Query(None, alias="date", description="Hari WIB, YYYY-MM-DD"),
+    hour: Optional[int] = Query(None, ge=0, le=23, description="Isi untuk per menit"),
+    db: Session = Depends(get_db),
+):
+    room = _get_room_or_404(db, room_id)
+    day = date_wib or get_current_wib_date()
+    if hour is None:
+        start_wib = datetime(day.year, day.month, day.day, tzinfo=WIB_TZ)
+        end_wib = start_wib + timedelta(days=1)
+        buckets = 24
+    else:
+        start_wib = datetime(day.year, day.month, day.day, hour, tzinfo=WIB_TZ)
+        end_wib = start_wib + timedelta(hours=1)
+        buckets = 60
+    start_utc = start_wib.astimezone(timezone.utc)
+    end_utc = end_wib.astimezone(timezone.utc)
+
+    samples: List[List[float]] = [[] for _ in range(buckets)]
+    if room.device:
+        # received_at dipakai untuk menyaring kasar; waktu sampel memakai device_ts bila ada.
+        rows = (
+            db.query(Telemetry.device_ts, Telemetry.received_at, Telemetry.flow_lpm)
+            .filter(
+                Telemetry.device_id == room.device.id,
+                Telemetry.received_at >= start_utc - timedelta(hours=1),
+                Telemetry.received_at < end_utc + timedelta(hours=1),
+            )
+            .all()
+        )
+        for device_ts, received_at, flow in rows:
+            ts = device_ts or received_at
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if not (start_utc <= ts < end_utc):
+                continue
+            local = ts.astimezone(WIB_TZ)
+            index = local.hour if hour is None else local.minute
+            samples[index].append(float(flow))
+
+    return {
+        "room_id": room_id,
+        "date": day.isoformat(),
+        "hour": hour,
+        "resolution": "HOUR" if hour is None else "MINUTE",
+        "series": [
+            {
+                "label": f"{i:02d}",
+                "avg_lpm": round(sum(v) / len(v), 2) if v else 0.0,
+                "max_lpm": round(max(v), 2) if v else 0.0,
+            }
+            for i, v in enumerate(samples)
+        ],
+    }

@@ -10,6 +10,7 @@ Kriteria Selesai (PRD 5.2 & CONTRACT.md Section 4):
 - Integrasi MQTT handle_alert dan job deteksi anomali memicu pengiriman notifikasi
 """
 
+import json
 import sys
 import time
 import unittest
@@ -39,7 +40,7 @@ from app.notify.dispatcher import (
     format_alert_payload,
     dispatch_alert_notification,
 )
-from app.mqtt.handlers import handle_alert, handle_status
+from app.mqtt.handlers import handle_alert, handle_status, route_mqtt_message
 from app.jobs.anomaly import run_anomaly_detection
 
 
@@ -370,6 +371,32 @@ class TestNotifications(unittest.TestCase):
         notif = self.db.query(Notification).filter(Notification.alert_id == alert.id).first()
         self.assertIsNotNone(notif)
         self.assertEqual(notif.attempts, 1)
+
+    def test_mqtt_alert_from_second_esp32_creates_notification(self):
+        """Kamar 2 juga ESP32 asli: alert dari device '2' tercatat dan dinotifikasi."""
+        from unittest.mock import patch
+
+        self.db.add(Room(id=2, name="Kamar 2", sort_order=2, is_simulated=False))
+        self.db.commit()
+        self.db.add(Device(id="2", room_id=2, valve_state=ValveState.OPEN))
+        self.db.add(PushToken(token="kamar2_token", platform="android"))
+        self.db.commit()
+
+        sent = []
+
+        def fake_client():
+            return FCMClient(mock_sender=lambda token, data: sent.append(data) or FCMResponse(True, 200))
+
+        payload = {"msg_id": 7, "ts": None, "rule": "STABLE", "flow_lpm": 3.2, "valve": "CLOSED"}
+        with patch("app.notify.dispatcher.FCMClient", side_effect=fake_client):
+            result = route_mqtt_message(self.db, "swm/2/alert", json.dumps(payload).encode())
+        self.assertTrue(result.success)
+
+        alert = self.db.query(Alert).filter(Alert.room_id == 2, Alert.type == AlertType.LEAK).one()
+        notif = self.db.query(Notification).filter(Notification.alert_id == alert.id).one()
+        self.assertIsNone(notif.last_error)
+        self.assertEqual(sent[0]["room_id"], "2")
+        self.assertEqual(sent[0]["body"], "Kamar 2: aliran stabil terdeteksi. Valve sudah ditutup.")
 
     def test_mqtt_handle_status_manual_button_does_not_create_notification(self):
         """Integrasi: handle_status MANUAL_BUTTON membuat alert ACTIVITY tapi TIDAK membuat notifikasi push."""
