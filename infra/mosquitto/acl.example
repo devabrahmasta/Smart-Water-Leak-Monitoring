@@ -20,6 +20,6 @@ pattern write swm/%u/live
 pattern read swm/%u/cmd
 pattern read swm/%u/config
 
-# Hanya simulator yang menerima skenario demo
-user 2
-topic read swm/2/demo
+# Hanya simulator Kamar 3 yang menerima skenario demo
+user 3
+topic read swm/3/demo

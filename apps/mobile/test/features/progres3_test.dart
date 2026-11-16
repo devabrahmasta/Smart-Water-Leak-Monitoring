@@ -126,7 +126,7 @@ void main() {
     expect(Env.useMock, isFalse);
   });
 
-  testWidgets('Mode demo hanya mengatur Kamar 2', (tester) async {
+  testWidgets('Mode demo hanya mengatur Kamar 3', (tester) async {
     final repo = await pumpApp(tester);
     await tester.tap(find.bySemanticsLabel('Mode demo'));
     await tester.pumpAndSettle();
@@ -135,6 +135,7 @@ void main() {
     await tester.tap(find.text('Bocor: aliran stabil'));
     await tester.pumpAndSettle();
     expect(repo.lastDemoScenario, DemoScenarioKind.leakStable);
+    expect(repo.lastDemoRoomId, 3);
     await tester.pump(const Duration(seconds: 4));
   });
 

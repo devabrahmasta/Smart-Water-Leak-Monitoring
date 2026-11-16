@@ -2,7 +2,8 @@
 Seeding script untuk Smart Water Database (R-02).
 
 Menginisialisasi:
-1. 2 Kamar (Kamar 1 fisik, Kamar 2 simulator) beserta relasi perangkatnya (device '1' dan '2').
+1. 3 Kamar beserta perangkatnya: Kamar 1 dan Kamar 2 alat asli ESP32 (device '1'
+   dan '2', Kamar 2 tanpa valve), Kamar 3 simulator Mode demo (device '3').
 2. Parameter default rule_params (9 ambang deteksi kebocoran dan anomali).
 
 Fungsi ini bersifat idempotent: aman dijalankan berulang kali.
@@ -26,8 +27,14 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
     {
         "name": "Kamar 2",
         "sort_order": 2,
-        "is_simulated": True,
+        "is_simulated": False,
         "device_id": "2",
+    },
+    {
+        "name": "Kamar 3",
+        "sort_order": 3,
+        "is_simulated": True,
+        "device_id": "3",
     },
 ]
 
@@ -93,6 +100,9 @@ def seed_database(db: Session) -> None:
             )
             db.add(room)
             db.flush()
+        else:
+            # Database lama: Kamar 2 dulu simulator, sekarang alat asli.
+            room.is_simulated = item["is_simulated"]
 
         device = db.query(Device).filter(Device.id == item["device_id"]).first()
         if not device:

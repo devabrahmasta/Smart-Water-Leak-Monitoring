@@ -14,13 +14,14 @@ import '../../core/theme/app_tokens.dart';
 import '../../data/models/models.dart';
 import '../../data/providers/providers.dart';
 
-/// Mode demo: mengatur simulator Kamar 2 lewat backend, jadi alurnya sama
-/// dengan kebocoran sungguhan. Kamar 1 memakai alat asli dan tidak terpengaruh.
+/// Mode demo: mengatur simulator Kamar 3 lewat backend, jadi alurnya sama
+/// dengan kebocoran sungguhan. Kamar 1 dan Kamar 2 memakai alat asli dan
+/// tidak terpengaruh.
 class DemoPage extends ConsumerWidget {
   const DemoPage({super.key});
 
-  /// Kamar 2 adalah simulator (CONTRACT.md 2).
-  static const _simulatedRoomId = 2;
+  /// Kamar 3 adalah simulator Mode demo.
+  static const _simulatedRoomId = 3;
 
   static const _options = <(DemoScenarioKind, String, String)>[
     (DemoScenarioKind.normal, 'Normal', 'Pemakaian air seperti biasa'),
@@ -83,13 +84,8 @@ class DemoPage extends ConsumerWidget {
           ? 'Notifikasi masuk ±15 detik lagi'
           : 'Notifikasi mati. Aktifkan di Pengaturan',
     );
-    // Dengan Firebase aktif, push asli dari backend yang masuk.
-    if (enabled && firebaseOptions == null) {
-      await showDemoLeakNotification(
-        roomId: _simulatedRoomId,
-        roomName: 'Kamar 2',
-      );
-    }
+    // Notifikasinya dari alert asli Kamar 3: push FCM bila aktif, atau
+    // pemantau alert di aplikasi (AlertWatcher).
   }
 
   @override
@@ -106,11 +102,11 @@ class DemoPage extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.lg),
         Text(
-          'Hanya mengatur Kamar 2, yang memakai simulator. Kamar 1 selalu '
-          'memakai data asli dari alat.',
+          'Hanya mengatur Kamar 3, yang memakai simulator. Kamar 1 dan '
+          'Kamar 2 selalu memakai data asli dari alat.',
           style: AppTextStyles.body.copyWith(color: AppColors.inkMuted),
         ),
-        const SectionTitle('Keadaan Kamar 2'),
+        const SectionTitle('Keadaan Kamar 3'),
         for (final (scenario, title, subtitle) in _options) ...[
           AppButton(
             label: title,
@@ -135,8 +131,8 @@ class DemoPage extends ConsumerWidget {
         ],
         const SectionTitle('Coba notifikasi'),
         Text(
-          'Ketuk tombol, lalu keluar dari aplikasi. Kamar 2 akan bocor dan '
-          'notifikasi masuk. Ketuk notifikasinya untuk membuka Detail Kamar 2.',
+          'Ketuk tombol, lalu keluar dari aplikasi. Kamar 3 akan bocor dan '
+          'notifikasi masuk. Ketuk notifikasinya untuk membuka Detail Kamar 3.',
           style: AppTextStyles.body.copyWith(color: AppColors.inkMuted),
         ),
         const SizedBox(height: AppSpacing.md),

@@ -569,6 +569,7 @@ class MockSmartWaterRepository implements SmartWaterRepository {
 
   /// Skenario terakhir yang diminta Mode demo (dibaca tes).
   DemoScenarioKind? lastDemoScenario;
+  int? lastDemoRoomId;
 
   @override
   Future<RoomRules> getRoomRules(int roomId) => _delay(
@@ -590,7 +591,10 @@ class MockSmartWaterRepository implements SmartWaterRepository {
 
   @override
   Future<void> setDemoScenario(int roomId, DemoScenarioKind scenario) =>
-      _delay(() => lastDemoScenario = scenario);
+      _delay(() {
+        lastDemoRoomId = roomId;
+        lastDemoScenario = scenario;
+      });
 
   @override
   Future<LiveFlow> getLiveFlow(int roomId) => _delay(() {

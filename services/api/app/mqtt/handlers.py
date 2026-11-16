@@ -183,9 +183,19 @@ def handle_alert(db: Session, device_id: str, payload: Dict[str, Any]) -> Ingest
     try:
         db.commit()
         db.refresh(alert_record)
+        logger.info(
+            f"[device {device_id}] KEBOCORAN {rule_enum.value} alert_id={alert_record.id} "
+            f"room_id={device.room_id} flow={payload['flow_lpm']} L/menit, valve CLOSED"
+        )
         # Kirim notifikasi push ke pemilik (R-08 / K1)
         try:
-            dispatch_alert_notification(db, alert_record)
+            notif = dispatch_alert_notification(db, alert_record)
+            if notif is not None:
+                outcome = notif.last_error or "terkirim"
+                logger.info(
+                    f"[device {device_id}] notifikasi alert_id={alert_record.id}: "
+                    f"{outcome} (percobaan {notif.attempts})"
+                )
         except Exception as notify_err:
             logger.error(f"Gagal mengirim notifikasi push alert {alert_record.id}: {notify_err}")
         return IngestResult(success=True)

@@ -41,3 +41,15 @@ Library: PubSubClient, WiFiClientSecure, ArduinoJson, Preferences (NVS), NTP.
   - LED Hijau (Normal/Buka): `GPIO 33`
   - LED Biru (Status Koneksi WiFi/MQTT): `GPIO 22`
 - **Jam Sepi**: bawaan 01.00 s.d. 04.00 WIB (flow > 1.0 L/menit selama >= 5 menit). Rentang dan durasi semua aturan bisa diubah per kamar dari aplikasi.
+
+## Log serial dua ESP32 sekaligus
+
+Kamar 1 dan Kamar 2 masing-masing satu ESP32 (`MQTT_DEVICE_ID` `"1"` dan `"2"` di `secrets.h`; Kamar 2 tanpa valve, kodenya sama). Untuk melihat log keduanya di satu terminal dan menyimpannya ke `logs/serial/`:
+
+```bash
+pip install -r firmware/esp32/tools/requirements.txt
+python firmware/esp32/tools/serial_monitor.py --list
+python firmware/esp32/tools/serial_monitor.py --port COM3=Kamar1 --port COM5=Kamar2
+```
+
+Tutup Serial Monitor Arduino IDE dulu, dan hentikan skrip (Ctrl+C) sebelum upload sketch. Log Kamar 3 ada di jendela simulator, dan alert dari semua kamar tercatat di jendela Worker (`[device N] KEBOCORAN ...`).

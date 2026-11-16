@@ -89,6 +89,7 @@ $mPath = (Resolve-Path $mosquittoDir).Path.Replace("\", "/")
 docker run --rm -v "${mPath}:/m" eclipse-mosquitto:2 mosquitto_passwd -c -b /m/passwd backend backend_dev_pass
 docker run --rm -v "${mPath}:/m" eclipse-mosquitto:2 mosquitto_passwd -b /m/passwd 1 device1_dev_pass
 docker run --rm -v "${mPath}:/m" eclipse-mosquitto:2 mosquitto_passwd -b /m/passwd 2 sim_dev_pass
+docker run --rm -v "${mPath}:/m" eclipse-mosquitto:2 mosquitto_passwd -b /m/passwd 3 sim3_dev_pass
 docker run --rm --entrypoint sh -v "${mPath}:/m" eclipse-mosquitto:2 -c "chmod 644 /m/passwd"
 
 Write-Host "==> Setup selesai! Jalankan 'docker compose -f infra/docker-compose.yml --env-file .env up -d' untuk memulai."

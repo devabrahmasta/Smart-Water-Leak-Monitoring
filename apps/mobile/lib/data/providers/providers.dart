@@ -127,7 +127,7 @@ final roomRulesProvider = FutureProvider.autoDispose.family<RoomRules, int>(
   (ref, roomId) => ref.watch(repositoryProvider).getRoomRules(roomId),
 );
 
-/// Skenario Kamar 2 yang terakhir dipilih di Mode demo (penanda di layar).
+/// Skenario Kamar 3 yang terakhir dipilih di Mode demo (penanda di layar).
 class SelectedDemoScenario extends Notifier<DemoScenarioKind?> {
   @override
   DemoScenarioKind? build() => null;

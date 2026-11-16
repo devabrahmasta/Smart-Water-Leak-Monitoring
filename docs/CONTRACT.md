@@ -1,6 +1,6 @@
 # CONTRACT.md: Smart Water
 
-Versi 1.0 (Draft), 7 November 2026
+Versi 1.4, 16 November 2026
 
 ## 0. Pemilik dan aturan ubah
 
@@ -25,7 +25,7 @@ Aturan ubah:
 
 ## 2. Firmware dan Backend (MQTT)
 
-Broker Mosquitto, TLS port 8883, QoS 1, payload JSON UTF-8. Satu akun per perangkat dengan ACL hanya boleh `swm/{device_id}/#`. Kredensial tidak ditulis di repo. `device_id` kamar 1 adalah `1`, dan kamar 2 (simulator) adalah `2`.
+Broker Mosquitto, TLS port 8883, QoS 1, payload JSON UTF-8. Satu akun per perangkat dengan ACL hanya boleh `swm/{device_id}/#`. Kredensial tidak ditulis di repo. `device_id` kamar 1 adalah `1`, kamar 2 (simulator, pemakaian normal) adalah `2`, dan kamar 3 (simulator Mode demo) adalah `3`.
 
 | Topik `swm/{device_id}/...` | Arah | Kapan |
 |---|---|---|
@@ -36,7 +36,7 @@ Broker Mosquitto, TLS port 8883, QoS 1, payload JSON UTF-8. Satu akun per perang
 | `ack` | ESP32 ke broker | Setelah perintah dieksekusi |
 | `live` | ESP32 ke broker | Tiap 1 detik, QoS 0, tidak disimpan di database |
 | `config` | broker ke ESP32 | Saat ambang kamar diubah di aplikasi. Pesan *retained*, jadi diterima lagi saat perangkat tersambung |
-| `demo` | broker ke simulator | Saat skenario Kamar 2 dipilih di Mode demo. Hanya simulator yang berlangganan |
+| `demo` | broker ke simulator | Saat skenario Kamar 3 dipilih di Mode demo. Hanya simulator Kamar 3 yang berlangganan |
 
 ```json
 // telemetry
@@ -66,7 +66,7 @@ Aturan:
 8. Perangkat dianggap offline bila tidak ada pesan selama 30 detik (**Usulan**, 3 kali interval telemetri).
 9. Aturan di perangkat, nilai bawaan: aliran terus menerus 45 menit, aliran stabil ±10% selama 5 menit, aliran di atas 1,0 L/menit selama 5 menit pada jam sepi. Aturan anomali 1,5 kali rata-rata ada di *backend*, bukan di perangkat.
 10. Ketiga durasi aturan dan rentang jam sepi bisa diubah per kamar lewat `config`. Perangkat menyimpannya di NVS dan langsung memakainya. Durasi dalam detik, 1 sampai 86400. Jam sepi dalam WIB, format `HH:MM`, boleh melewati tengah malam, dan mulai tidak boleh sama dengan selesai. Perangkat tidak mengirim konfirmasi.
-11. `demo` hanya untuk simulator Kamar 2. Saat diterima, simulator membuka valve lalu menjalankan skenario itu dengan pemicu dipercepat (1 siklus telemetri). Perangkat nyata tidak berlangganan topik ini.
+11. `demo` hanya untuk simulator Kamar 3. Saat diterima, simulator membuka valve lalu menjalankan skenario itu dengan pemicu dipercepat (1 siklus telemetri). Perangkat nyata tidak berlangganan topik ini.
 12. `live` hanya membawa debit sekarang untuk tampilan. Volume dan rekap tetap dihitung dari `telemetry`. *Backend* menyimpan satu nilai terakhir per perangkat, dan pesan ini juga menandai perangkat online.
 
 ```json
@@ -194,10 +194,11 @@ Berkas di `packages/contracts`: `openapi.json`, `mqtt-device.md`, `schemas/*.jso
 | 1.1 | 2026-11-08 | Ambang per kamar (`rules`, `config`), skenario simulator dari aplikasi (`demo-scenario`, `demo`), notifikasi membuka Detail Kamar |
 | 1.3 | 2026-11-13 | Debit langsung (`live`, `GET /v1/rooms/{id}/live`) dan grafik aliran per jam dan per menit (`GET /v1/rooms/{id}/flow`) |
 | 1.2 | 2026-11-08 | Durasi minimal 1 detik, jam sepi per kamar (`quiet_start`, `quiet_end`) |
+| 1.4 | 2026-11-16 | Kamar 3 (`device_id` `3`) jadi simulator Mode demo, Kamar 2 tetap simulator pemakaian normal |
 
 ## 6. Pertanyaan terbuka
 
 1. Jam sepi: tabel aturan di laporan menulis 01:00 sampai 04:00, tapi *flowchart* ESP menulis 00:00 sampai 04:00. Putuskan satu sebelum firmware menulis aturannya.
 2. Angka bertanda **Usulan** perlu disetujui tim: batas offline 30 detik, polling 10 detik dan 1 detik, tidak ada push untuk tombol fisik.
 3. Daftar *endpoint* disusun ulang dari layar dan user story, jadi bisa beda tipis dari PRD HTTPS yang pertama. Selisihnya dicek saat `openapi.json` ditulis.
-4. Simulator kamar 2 dikerjakan siapa? Usulan: salah satu orang firmware, supaya beban *backend* tidak terlalu berat.
+4. Simulator kamar 2 dan 3 dikerjakan siapa? Usulan: salah satu orang firmware, supaya beban *backend* tidak terlalu berat.

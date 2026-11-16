@@ -25,6 +25,14 @@
 #include "secrets.h"
 
 // ==========================================
+// LOG SERIAL MONITOR (115200 baud)
+// ==========================================
+// 1 = tampilkan pembacaan sensor tiap detik dan kejadian penting.
+// 0 = matikan semua log.
+#define DEBUG_LOG 1
+#define LOGF(...) do { if (DEBUG_LOG) Serial.printf(__VA_ARGS__); } while (0)
+
+// ==========================================
 // PINOUT HARDWARE
 // ==========================================
 #define PIN_FLOW_SENSOR   4
@@ -205,7 +213,10 @@ bool isInQuietHours(int minuteOfDay) {
 // PENGIRIMAN PESAN MQTT
 // ==========================================
 void sendTelemetry() {
-  if (!mqttClient.connected()) return;
+  if (!mqttClient.connected()) {
+    LOGF("[TELEMETRI] dilewati, MQTT belum tersambung (volume %.3f L ditahan)\n", deltaVolumeL);
+    return;
+  }
 
   char tsBuf[30];
   bool timeValid = getNtpTime(tsBuf, sizeof(tsBuf));
@@ -223,7 +234,8 @@ void sendTelemetry() {
 
   char jsonBuffer[256];
   serializeJson(doc, jsonBuffer);
-  mqttClient.publish(topicTelemetry.c_str(), jsonBuffer, false);
+  bool sent = mqttClient.publish(topicTelemetry.c_str(), jsonBuffer, false);
+  LOGF("[TELEMETRI] %s %s\n", sent ? "terkirim" : "GAGAL", jsonBuffer);
 
   // Reset delta volume setelah dipublish
   deltaVolumeL = 0.0f;
@@ -242,6 +254,7 @@ void sendLive() {
 }
 
 void sendAlert(const char* ruleName) {
+  LOGF("[ALERT] aturan %s terpicu, debit %.2f L/menit, valve ditutup\n", ruleName, currentFlowRateLpm);
   // Sesuai PRD: valve langsung ditutup seketika oleh ESP32 sebelum kirim alert
   applyValveState(false);
   saveValveState(false);
@@ -347,6 +360,10 @@ void applyRuleConfig(byte* payload, unsigned int length) {
   prefs.putInt("quiet_start", quietStartMin);
   prefs.putInt("quiet_end", quietEndMin);
 
+  LOGF("[CONFIG] terus=%lus stabil=%lus jam_sepi=%lus rentang=%02d:%02d-%02d:%02d\n",
+       continuousSec, stableSec, quietSec,
+       quietStartMin / 60, quietStartMin % 60, quietEndMin / 60, quietEndMin % 60);
+
   // Hitung ulang dari awal supaya ambang baru berlaku penuh.
   continuousFlowStartMs = 0;
   stableFlowStartMs = 0;
@@ -371,6 +388,7 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
 
   uint32_t cmdId = doc["command_id"] | 0;
   const char* action = doc["action"] | "";
+  LOGF("[CMD] command_id=%u action=%s\n", cmdId, action);
 
   // Kontrak 2.5: Abaikan command_id yang sudah pernah dieksekusi, tapi tetap kirim ack
   if (cmdId == lastExecutedCommandId && cmdId != 0) {
@@ -478,6 +496,7 @@ void handleButton() {
       // Tekan 1x -> Membuka valve
       applyValveState(true);
       saveValveState(true);
+      LOGF("[TOMBOL] ditekan, valve dibuka\n");
       sendStatus("MANUAL_BUTTON");
     }
   }
@@ -503,13 +522,18 @@ void handleWiFi(unsigned long now) {
   bool connected = WiFi.status() == WL_CONNECTED;
 
   if (connected && !wifiWasConnected) {
+    LOGF("[WIFI] tersambung ke %s, IP %s, sinyal %d dBm\n",
+         WIFI_SSID, WiFi.localIP().toString().c_str(), WiFi.RSSI());
     configTime(0, 0, NTP_SERVER1, NTP_SERVER2); // Sync NTP (UTC)
+  } else if (!connected && wifiWasConnected) {
+    LOGF("[WIFI] terputus, mencoba lagi\n");
   }
   wifiWasConnected = connected;
   if (connected) return;
 
   // Mulai ulang percobaan kalau 15 detik belum tersambung.
   if (now - lastWifiBeginMillis >= 15000) {
+    LOGF("[WIFI] belum tersambung ke %s setelah 15 detik, mengulang\n", WIFI_SSID);
     WiFi.disconnect();
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     lastWifiBeginMillis = now;
@@ -527,11 +551,15 @@ void connectMqtt() {
   if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
     mqttClient.subscribe(topicCmd.c_str(), 1); // QoS 1
     mqttClient.subscribe(topicConfig.c_str(), 1); // Retained: diterima lagi setiap tersambung
+    LOGF("[MQTT] tersambung ke %s:%d sebagai %s\n", MQTT_HOST, MQTT_PORT, clientId.c_str());
     if (pendingStatusSource != nullptr) {
       const char* source = pendingStatusSource;
       pendingStatusSource = nullptr;
       sendStatus(source);
     }
+  } else {
+    // -4 timeout, -2 gagal konek/TLS, 4 password salah, 5 tidak diizinkan
+    LOGF("[MQTT] gagal tersambung ke %s:%d, state=%d\n", MQTT_HOST, MQTT_PORT, mqttClient.state());
   }
 }
 
@@ -585,6 +613,12 @@ void setup() {
   // Beri ruang untuk gangguan Wi-Fi sesaat (default PubSubClient 15 detik).
   mqttClient.setKeepAlive(60);
 
+  LOGF("\n[BOOT] Smart Water kamar %s, valve %s, msg_id %u\n",
+       MQTT_DEVICE_ID, valveIsOpen ? "OPEN" : "CLOSED", currentMsgId);
+  LOGF("[BOOT] ambang: terus=%lus stabil=%lus jam_sepi=%lus rentang=%02d:%02d-%02d:%02d\n",
+       continuousLeakMs / 1000, stableLeakMs / 1000, quietLeakMs / 1000,
+       quietStartMin / 60, quietStartMin % 60, quietEndMin / 60, quietEndMin % 60);
+
   // Sambungkan WiFi tanpa menunggu; MQTT menyusul di loop.
   startWiFi();
 
@@ -632,6 +666,12 @@ void loop() {
     // Volume = debit (L/menit) * (detik / 60)
     float volumeCurrentSecond = currentFlowRateLpm * (secondsElapsed / 60.0f);
     deltaVolumeL += volumeCurrentSecond;
+
+    LOGF("[SENSOR] pulsa=%lu debit=%.2f L/menit vol=+%.3f L akumulasi=%.3f L valve=%s wifi=%s mqtt=%s\n",
+         pulses, currentFlowRateLpm, volumeCurrentSecond, deltaVolumeL,
+         valveIsOpen ? "OPEN" : "CLOSED",
+         WiFi.status() == WL_CONNECTED ? "OK" : "PUTUS",
+         mqttClient.connected() ? "OK" : "PUTUS");
 
     // Evaluasi Aturan Kebocoran Lokal
     checkLeakRules(now);

@@ -388,7 +388,7 @@ class RoomRules {
   };
 }
 
-/// Skenario simulator Kamar 2 (`POST /v1/rooms/{id}/demo-scenario`).
+/// Skenario simulator Kamar 3 (`POST /v1/rooms/{id}/demo-scenario`).
 enum DemoScenarioKind {
   normal('NORMAL'),
   leakContinuous('LEAK_CONTINUOUS'),

@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any, Callable
 
 import paho.mqtt.client as mqtt
 
-from services.simulator.config import settings, ROOT_DIR
+from services.simulator.config import settings, ROOT_DIR, mqtt_credentials
 from services.simulator.state import SimulatorState
 from services.simulator.scenarios import BaseScenario, get_scenario
 
@@ -231,10 +231,7 @@ class SimulatedDevice:
         )
 
         # Autentikasi username & password
-        client.username_pw_set(
-            settings.SIM_MQTT_USERNAME,
-            settings.SIM_MQTT_PASSWORD,
-        )
+        client.username_pw_set(*mqtt_credentials(self.state.device_id))
 
         # Konfigurasi TLS
         ca_path = Path(settings.MQTT_CA_CERT)
