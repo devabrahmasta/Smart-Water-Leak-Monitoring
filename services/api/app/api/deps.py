@@ -52,7 +52,7 @@ class RealMQTTPublisher:
     def _get_client(self):
         if self._client is None:
             from app.mqtt.client import create_mqtt_client
-            self._client = create_mqtt_client(client_id="smartwater-api-publisher")
+            self._client = create_mqtt_client(client_id="smartwater-api-publisher", ingest=False)
             try:
                 self._client.connect(settings.MQTT_HOST, settings.MQTT_PORT, keepalive=60)
                 self._client.loop_start()

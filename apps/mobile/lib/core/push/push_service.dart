@@ -151,7 +151,15 @@ class AlertWatcher {
   final Duration interval;
   final Future<void> Function(Map<String, String> data) _show;
   final _seen = <int>{};
+  final _seenEvents = <String>{};
   bool _primed = false;
+
+  static String _eventKey(Alert a) {
+    final msgId = a.detail['msg_id'];
+    return msgId == null
+        ? 'id:${a.id}'
+        : '${a.roomId}:${a.type.name}:$msgId';
+  }
   bool _busy = false;
   Timer? _timer;
 
@@ -177,6 +185,9 @@ class AlertWatcher {
       final fresh = page.items
           .where((a) => a.type == AlertType.leak || a.type == AlertType.anomaly)
           .where((a) => _seen.add(a.id))
+          // Satu kejadian bocor = satu notifikasi, walau tercatat dua baris
+          // dengan msg_id perangkat yang sama.
+          .where((a) => _seenEvents.add(_eventKey(a)))
           .toList();
       if (!_primed) {
         _primed = true;

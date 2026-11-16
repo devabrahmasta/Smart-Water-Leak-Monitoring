@@ -119,6 +119,11 @@ def handle_telemetry(db: Session, device_id: str, payload: Dict[str, Any]) -> In
         return IngestResult(success=False, error=err)
 
 
+def _lock_device(db: Session, device_id: str) -> Optional[Device]:
+    """SELECT ... FOR UPDATE pada baris perangkat (Postgres). SQLite mengabaikannya."""
+    return db.query(Device).filter_by(id=device_id).with_for_update().first()
+
+
 def handle_alert(db: Session, device_id: str, payload: Dict[str, Any]) -> IngestResult:
     """
     Memproses payload alert kebocoran dari perangkat:
@@ -133,8 +138,9 @@ def handle_alert(db: Session, device_id: str, payload: Dict[str, Any]) -> Ingest
         logger.warning(f"Alert dari device '{device_id}' ditolak: {err_msg}")
         return IngestResult(success=False, error=err_msg)
 
-    # 2. Cek perangkat terdaftar
-    device = db.query(Device).filter_by(id=device_id).first()
+    # 2. Cek perangkat terdaftar. Baris perangkat dikunci sampai commit supaya
+    # dua proses yang menerima pesan sama tidak lolos cek duplikat bersamaan.
+    device = _lock_device(db, device_id)
     if not device:
         err = f"Perangkat tidak terdaftar: {device_id}"
         logger.warning(err)
@@ -219,8 +225,8 @@ def handle_status(db: Session, device_id: str, payload: Dict[str, Any]) -> Inges
         logger.warning(f"Status dari device '{device_id}' ditolak: {err_msg}")
         return IngestResult(success=False, error=err_msg)
 
-    # 2. Cek perangkat terdaftar
-    device = db.query(Device).filter_by(id=device_id).first()
+    # 2. Cek perangkat terdaftar (dikunci sampai commit, lihat handle_alert)
+    device = _lock_device(db, device_id)
     if not device:
         err = f"Perangkat tidak terdaftar: {device_id}"
         logger.warning(err)
@@ -230,6 +236,25 @@ def handle_status(db: Session, device_id: str, payload: Dict[str, Any]) -> Inges
     device_ts = _parse_timestamp(payload.get("ts"), now_utc)
     valve_state = ValveState(payload["valve"])
     source = payload["source"]  # "BOOT" | "MANUAL_BUTTON"
+
+    # Tombol fisik yang terkirim ulang (msg_id sama) tidak boleh tercatat dua kali.
+    if source == "MANUAL_BUTTON":
+        msg_id = int(payload["msg_id"])
+        recent_activity = (
+            db.query(Alert)
+            .filter(Alert.room_id == device.room_id, Alert.type == AlertType.ACTIVITY)
+            .order_by(Alert.id.desc())
+            .limit(20)
+            .all()
+        )
+        if any((a.detail or {}).get("msg_id") == msg_id for a in recent_activity):
+            db.rollback()
+            logger.info(f"Duplicate status ignored: device={device_id}, msg_id={msg_id}")
+            return IngestResult(
+                success=True,
+                is_duplicate=True,
+                message=f"Pesan duplikat diabaikan: {msg_id}",
+            )
 
     # 3. Perbarui status perangkat
     device.valve_state = valve_state

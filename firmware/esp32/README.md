@@ -30,9 +30,10 @@ Library: PubSubClient, WiFiClientSecure, ArduinoJson, Preferences (NVS), NTP.
 ## Keputusan Hardware & Rangkaian (R-13)
 
 - **Board**: ESP32 Dev Module
-- **Relay & Valve**: Logika Normally Closed (NC). Terminal kabel solenoid dihubungkan ke COM & NC.
-  - Normal (Air Terbuka): Relay OFF (jalur NC tersambung).
-  - Bocor / Tutup: Relay ON (memutus kontak NC).
+- **Relay & Valve**: Solenoid Normally Open, kabel solenoid lewat COM & NC relay.
+  - Normal (Air Terbuka): Relay ON (kontak NC putus, solenoid tanpa listrik).
+  - Bocor / Tutup: Relay OFF (kontak NC sambung, solenoid menutup).
+  - ESP32 mati atau reset = relay OFF = air tertutup sampai status dipulihkan dari NVS.
 - **Pinout GPIO**:
   - Flow Sensor (YF-S201): `GPIO 4`
   - Relay Valve: `GPIO 13`

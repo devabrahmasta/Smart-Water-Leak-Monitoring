@@ -372,14 +372,18 @@ class TestNotifications(unittest.TestCase):
         self.assertIsNotNone(notif)
         self.assertEqual(notif.attempts, 1)
 
-    def test_mqtt_alert_from_second_esp32_creates_notification(self):
-        """Kamar 2 juga ESP32 asli: alert dari device '2' tercatat dan dinotifikasi."""
+    def test_mqtt_alert_from_every_room_creates_notification(self):
+        """Kamar 1 dan 2 (ESP32 asli) serta Kamar 3 (simulator) sama-sama dinotifikasi."""
         from unittest.mock import patch
 
-        self.db.add(Room(id=2, name="Kamar 2", sort_order=2, is_simulated=False))
+        for room_id in (2, 3):
+            self.db.add(Room(id=room_id, name=f"Kamar {room_id}", sort_order=room_id,
+                             is_simulated=room_id == 3))
+        self.device.id = "1"  # id asli ESP32 Kamar 1 sesuai kontrak
         self.db.commit()
-        self.db.add(Device(id="2", room_id=2, valve_state=ValveState.OPEN))
-        self.db.add(PushToken(token="kamar2_token", platform="android"))
+        for device_id in ("2", "3"):
+            self.db.add(Device(id=device_id, room_id=int(device_id), valve_state=ValveState.OPEN))
+        self.db.add(PushToken(token="all_rooms_token", platform="android"))
         self.db.commit()
 
         sent = []
@@ -387,16 +391,30 @@ class TestNotifications(unittest.TestCase):
         def fake_client():
             return FCMClient(mock_sender=lambda token, data: sent.append(data) or FCMResponse(True, 200))
 
-        payload = {"msg_id": 7, "ts": None, "rule": "STABLE", "flow_lpm": 3.2, "valve": "CLOSED"}
-        with patch("app.notify.dispatcher.FCMClient", side_effect=fake_client):
-            result = route_mqtt_message(self.db, "swm/2/alert", json.dumps(payload).encode())
-        self.assertTrue(result.success)
+        cases = [
+            ("1", "CONTINUOUS", "Kamar 1: aliran terus menerus. Valve sudah ditutup."),
+            ("2", "STABLE", "Kamar 2: aliran stabil terdeteksi. Valve sudah ditutup."),
+            ("3", "QUIET_HOURS", "Kamar 3: aliran di jam sepi terdeteksi. Valve sudah ditutup."),
+        ]
+        for device_id, rule, body in cases:
+            with self.subTest(device=device_id):
+                payload = {"msg_id": 7, "ts": None, "rule": rule, "flow_lpm": 3.2, "valve": "CLOSED"}
+                with patch("app.notify.dispatcher.FCMClient", side_effect=fake_client):
+                    result = route_mqtt_message(
+                        self.db, f"swm/{device_id}/alert", json.dumps(payload).encode()
+                    )
+                self.assertTrue(result.success)
 
-        alert = self.db.query(Alert).filter(Alert.room_id == 2, Alert.type == AlertType.LEAK).one()
-        notif = self.db.query(Notification).filter(Notification.alert_id == alert.id).one()
-        self.assertIsNone(notif.last_error)
-        self.assertEqual(sent[0]["room_id"], "2")
-        self.assertEqual(sent[0]["body"], "Kamar 2: aliran stabil terdeteksi. Valve sudah ditutup.")
+                room_id = int(device_id)
+                alert = self.db.query(Alert).filter(
+                    Alert.room_id == room_id, Alert.type == AlertType.LEAK
+                ).one()
+                notif = self.db.query(Notification).filter(Notification.alert_id == alert.id).one()
+                self.assertIsNone(notif.last_error)
+                self.assertEqual(sent[-1]["room_id"], device_id)
+                self.assertEqual(sent[-1]["body"], body)
+
+        self.assertEqual(len(sent), 3)
 
     def test_mqtt_handle_status_manual_button_does_not_create_notification(self):
         """Integrasi: handle_status MANUAL_BUTTON membuat alert ACTIVITY tapi TIDAK membuat notifikasi push."""

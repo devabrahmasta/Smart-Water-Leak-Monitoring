@@ -84,6 +84,17 @@ void main() {
     );
   });
 
+  test('satu kebocoran yang tercatat dua baris hanya dinotifikasi sekali', () async {
+    await watcher.check();
+    repo.open = [
+      _alert(30, 1, detail: {'msg_id': 2308, 'flow_lpm': 6.4}),
+      _alert(31, 1, detail: {'msg_id': 2308, 'flow_lpm': 6.4}),
+    ];
+    await watcher.check();
+
+    expect(shown, hasLength(1));
+  });
+
   test('anomali ikut dinotifikasi, aktivitas tombol tidak', () async {
     await watcher.check();
     repo.open = [

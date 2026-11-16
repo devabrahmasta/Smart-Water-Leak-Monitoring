@@ -299,6 +299,51 @@ class TestMqttIngest(unittest.TestCase):
         self.assertIsNotNone(t)
         self.assertEqual(t.flow_lpm, 6.4)
 
+    def test_duplicate_manual_button_status_recorded_once(self):
+        """Status tombol fisik yang terkirim dua kali (QoS 1) hanya jadi satu aktivitas."""
+        first = handle_status(self.db, "1", dict(self.status_manual_fixture))
+        second = handle_status(self.db, "1", dict(self.status_manual_fixture))
+        self.assertTrue(first.success)
+        self.assertFalse(first.is_duplicate)
+        self.assertTrue(second.success)
+        self.assertTrue(second.is_duplicate)
+
+        activities = self.db.query(Alert).filter(Alert.type == AlertType.ACTIVITY).count()
+        commands = self.db.query(ValveCommand).filter(
+            ValveCommand.source == CommandSource.MANUAL_BUTTON
+        ).count()
+        self.assertEqual(activities, 1)
+        self.assertEqual(commands, 1)
+
+    def test_duplicate_alert_recorded_once(self):
+        """Alert bocor yang terkirim dua kali hanya jadi satu alert."""
+        handle_alert(self.db, "1", dict(self.alert_fixture))
+        second = handle_alert(self.db, "1", dict(self.alert_fixture))
+        self.assertTrue(second.is_duplicate)
+        self.assertEqual(self.db.query(Alert).filter(Alert.type == AlertType.LEAK).count(), 1)
+
+    def test_api_publisher_does_not_consume_ingest_topics(self):
+        """Hanya worker yang ingest. Publisher API tidak boleh ikut subscribe,
+        kalau ikut, satu alert tersimpan dua kali dan notifikasinya terkirim dua kali."""
+        from unittest.mock import MagicMock
+        from app.api.deps import RealMQTTPublisher
+        from app.mqtt.client import create_mqtt_client
+
+        ingest = create_mqtt_client(client_id="test-ingest", session_factory=self.Session)
+        conn = MagicMock()
+        ingest.on_connect(conn, None, None, 0, None)
+        conn.subscribe.assert_called_once()
+
+        publisher_holder = RealMQTTPublisher()
+        with unittest.mock.patch.object(type(ingest), "connect"), \
+             unittest.mock.patch.object(type(ingest), "loop_start"):
+            publisher = publisher_holder._get_client()
+        conn = MagicMock()
+        publisher.on_connect(conn, None, None, 0, None)
+        conn.subscribe.assert_not_called()
+        # Sesi bersih supaya langganan lama di broker ikut terhapus.
+        self.assertTrue(publisher._clean_session)
+
 
 if __name__ == "__main__":
     unittest.main()

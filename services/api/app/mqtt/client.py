@@ -48,9 +48,14 @@ def publish_valve_command(
 def create_mqtt_client(
     client_id: str = "smartwater-backend-ingest",
     session_factory: Optional[Callable[[], Session]] = None,
+    ingest: bool = True,
 ) -> mqtt.Client:
     """
     Membuat dan mengonfigurasi instance Paho MQTT Client dengan kredensial & TLS.
+
+    ingest=False untuk client yang hanya publish (API). Client itu tidak boleh
+    subscribe topik ingest, karena kalau dua proses ingest bersamaan, satu
+    alert tersimpan dan dinotifikasi dua kali.
     """
     if session_factory is None:
         session_factory = SessionLocal
@@ -58,7 +63,8 @@ def create_mqtt_client(
     client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
         client_id=client_id,
-        clean_session=False,
+        # Publisher pakai sesi bersih supaya langganan lama di broker terhapus.
+        clean_session=not ingest,
     )
 
     # Otentikasi username & password
@@ -83,8 +89,9 @@ def create_mqtt_client(
     def on_connect(client_instance, userdata, flags, reason_code, properties):
         if reason_code == 0:
             logger.info("Berhasil terhubung ke MQTT Broker Mosquitto.")
-            client_instance.subscribe(INGEST_TOPICS)
-            logger.info(f"Berlangganan topik: {[t[0] for t in INGEST_TOPICS]}")
+            if ingest:
+                client_instance.subscribe(INGEST_TOPICS)
+                logger.info(f"Berlangganan topik: {[t[0] for t in INGEST_TOPICS]}")
         else:
             logger.error(f"Gagal terhubung ke broker: reason_code={reason_code}")
 

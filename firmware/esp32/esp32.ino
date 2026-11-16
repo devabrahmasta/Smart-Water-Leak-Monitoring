@@ -2,7 +2,7 @@
  * Smart Water Leak Monitoring - ESP32 Firmware
  * Hardware:
  *  - ESP32 NodeMCU / DevKit
- *  - Solenoid Valve via Relay Module (GPIO 13) - Normally Closed Logic
+ *  - Solenoid Valve Normally Open via kontak NC Relay (GPIO 13)
  *  - Flow Sensor YF-S201 (GPIO 4)
  *  - Manual Push Button (GPIO 18) - Internal Pull-Up
  *  - Status LEDs: Red (GPIO 23), Green (GPIO 33), Blue (GPIO 22)
@@ -30,6 +30,7 @@
 // 1 = tampilkan pembacaan sensor tiap detik dan kejadian penting.
 // 0 = matikan semua log.
 #define DEBUG_LOG 1
+
 #define LOGF(...) do { if (DEBUG_LOG) Serial.printf(__VA_ARGS__); } while (0)
 
 // ==========================================
@@ -43,17 +44,20 @@
 #define PIN_LED_GREEN     33
 
 // ==========================================
-// LOGIKA RELAY & VALVE (NORMALLY CLOSED)
+// LOGIKA RELAY & VALVE (VALVE NORMALLY OPEN, KONTAK RELAY NC)
 // ==========================================
-// Relay tipe NC (Normally Closed) ke Solenoid:
-// - Saat NORMAL (Air BUKA): Relay OFF (tidak mengalirkan arus pemutus, valve standby terbuka)
-// - Saat BOCOR / TUTUP: Relay ON (memutus jalur kontak NC sehingga valve menutup)
-// Jika modul relay Active-HIGH:
+// Solenoid Normally Open: tanpa listrik terbuka, diberi listrik menutup.
+// Solenoid disambung lewat kontak NC relay, jadi:
+// - Relay OFF -> kontak NC tersambung -> solenoid dapat listrik -> air TERTUTUP
+// - Relay ON  -> kontak NC terputus   -> solenoid tanpa listrik -> air TERBUKA
+// Akibatnya saat ESP32 mati atau reset (relay OFF), air ikut tertutup selama
+// solenoid masih dapat daya. Setelah boot, status valve dipulihkan dari NVS.
+// Jika modul relay Active-HIGH (ganti HIGH/LOW bila modulnya Active-LOW):
 #define RELAY_TRIGGER_ACTIVE   HIGH
 #define RELAY_TRIGGER_INACTIVE LOW
 
-#define VALVE_OPEN_SIGNAL      RELAY_TRIGGER_INACTIVE  // Relay OFF -> Air jalan (NC tersambung)
-#define VALVE_CLOSE_SIGNAL     RELAY_TRIGGER_ACTIVE    // Relay ON  -> Air mati (NC terputus)
+#define VALVE_OPEN_SIGNAL      RELAY_TRIGGER_ACTIVE    // Relay ON  -> NC putus  -> air jalan
+#define VALVE_CLOSE_SIGNAL     RELAY_TRIGGER_INACTIVE  // Relay OFF -> NC sambung -> air mati
 
 // ==========================================
 // KONFIGURASI ATURAN & TIMING
@@ -102,6 +106,8 @@ float currentFlowRateLpm = 0.0f;
 float deltaVolumeL = 0.0f;
 
 bool valveIsOpen = true;
+// True sejak aturan kebocoran terpicu sampai valve dibuka lagi (app atau tombol).
+bool leakActive = false;
 uint32_t currentMsgId = 1;
 uint32_t lastExecutedCommandId = 0;
 
@@ -153,11 +159,13 @@ void saveValveState(bool isOpen) {
 // ==========================================
 void applyValveState(bool open) {
   valveIsOpen = open;
+  if (open) leakActive = false;
   digitalWrite(PIN_RELAY_VALVE, valveIsOpen ? VALVE_OPEN_SIGNAL : VALVE_CLOSE_SIGNAL);
 }
 
 // LED dipanggil tiap loop. Satu lampu, satu arti:
 // - Biru = internet: menyala diam saat WiFi dan MQTT tersambung, berkedip saat offline.
+// - Bocor = biru (status internet) + merah, hijau mati.
 // - Hijau / merah = valve: hijau saat terbuka, merah saat tertutup (online maupun offline).
 void updateLeds(unsigned long now) {
   bool online = WiFi.status() == WL_CONNECTED && mqttClient.connected();
@@ -167,8 +175,22 @@ void updateLeds(unsigned long now) {
     lastLedBlinkMillis = now;
     digitalWrite(PIN_LED_BLUE, !digitalRead(PIN_LED_BLUE));
   }
-  digitalWrite(PIN_LED_GREEN, valveIsOpen ? HIGH : LOW);
-  digitalWrite(PIN_LED_RED, valveIsOpen ? LOW : HIGH);
+  bool red = leakActive || !valveIsOpen;
+  digitalWrite(PIN_LED_GREEN, red ? LOW : HIGH);
+  digitalWrite(PIN_LED_RED, red ? HIGH : LOW);
+}
+
+// Tes lampu saat boot: merah, hijau, biru menyala bergantian 0,5 detik.
+// Kalau salah satu tidak menyala, cek kabel, kaki LED (anoda ke GPIO), dan resistornya.
+void ledSelfTest() {
+  const uint8_t pins[] = {PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE};
+  const char* names[] = {"MERAH (GPIO 23)", "HIJAU (GPIO 33)", "BIRU (GPIO 22)"};
+  for (int i = 0; i < 3; i++) {
+    LOGF("[LED] tes %s\n", names[i]);
+    digitalWrite(pins[i], HIGH);
+    delay(500);
+    digitalWrite(pins[i], LOW);
+  }
 }
 
 // ==========================================
@@ -254,6 +276,7 @@ void sendLive() {
 }
 
 void sendAlert(const char* ruleName) {
+  leakActive = true;
   LOGF("[ALERT] aturan %s terpicu, debit %.2f L/menit, valve ditutup\n", ruleName, currentFlowRateLpm);
   // Sesuai PRD: valve langsung ditutup seketika oleh ESP32 sebelum kirim alert
   applyValveState(false);
@@ -576,6 +599,7 @@ void setup() {
   pinMode(PIN_LED_RED, OUTPUT);
   pinMode(PIN_LED_GREEN, OUTPUT);
   pinMode(PIN_LED_BLUE, OUTPUT);
+  ledSelfTest();
 
   // Interrupt sensor debit air
   attachInterrupt(digitalPinToInterrupt(PIN_FLOW_SENSOR), flowSensorISR, RISING);
@@ -584,7 +608,7 @@ void setup() {
   prefs.begin("smart_water", false);
   currentMsgId = prefs.getUInt("msg_id", 0);
   lastExecutedCommandId = prefs.getUInt("last_cmd", 0);
-  // Default pertama kali = true (Normaly Closed valve standby terbuka saat normal)
+  // Default pertama kali = true (valve terbuka, relay ON)
   valveIsOpen = prefs.getBool("valve_open", true);
 
   // Ambang kamar terakhir dari aplikasi
