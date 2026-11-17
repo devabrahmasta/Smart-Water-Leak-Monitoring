@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -63,18 +62,6 @@ class HomePage extends ConsumerWidget {
           showStaleBanner: false,
           builder: (list) => _AttentionList(rooms: list),
         ),
-        if (kDebugMode) ...[
-          const SizedBox(height: AppSpacing.sectionGap),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: AppButton(
-              label: 'Galeri komponen',
-              style: AppButtonStyle.secondary,
-              size: AppButtonSize.medium,
-              onPressed: () => context.push(AppRoutes.gallery),
-            ),
-          ),
-        ],
       ],
     );
   }

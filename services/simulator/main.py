@@ -149,6 +149,7 @@ def main():
     try:
         while running:
             tick_count += 1
+            device.run_now.clear()
             payload = device.step()
             if payload:
                 logger.info(
@@ -163,8 +164,9 @@ def main():
                 break
 
             # Sambil menunggu tick berikutnya, kirim debit sekarang tiap 1 detik.
+            # Pilihan Mode demo memotong penantian supaya langsung dijalankan.
             waited = 0.0
-            while running and waited < args.interval:
+            while running and waited < args.interval and not device.run_now.is_set():
                 step = min(1.0, args.interval - waited)
                 time.sleep(step)
                 waited += step

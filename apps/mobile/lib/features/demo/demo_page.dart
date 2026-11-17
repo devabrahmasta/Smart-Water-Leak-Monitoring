@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../components/components.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/presentation/screen_body.dart';
-import '../../core/push/push_service.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
@@ -28,17 +27,17 @@ class DemoPage extends ConsumerWidget {
     (
       DemoScenarioKind.leakStable,
       'Bocor: aliran stabil',
-      'Air dihentikan otomatis dalam ±10 detik',
+      'Langsung bocor, air dihentikan otomatis',
     ),
     (
       DemoScenarioKind.leakContinuous,
       'Bocor: air mengalir terus',
-      'Air dihentikan otomatis dalam ±10 detik',
+      'Langsung bocor, air dihentikan otomatis',
     ),
     (
       DemoScenarioKind.leakQuietHours,
       'Bocor: jam sepi',
-      'Air dihentikan otomatis dalam ±10 detik',
+      'Langsung bocor, air dihentikan otomatis',
     ),
     (
       DemoScenarioKind.offline,
@@ -70,22 +69,6 @@ class DemoPage extends ConsumerWidget {
       }
       return false;
     }
-  }
-
-  Future<void> _tryNotification(BuildContext context, WidgetRef ref) async {
-    final sent = await _select(context, ref, DemoScenarioKind.leakStable);
-    if (!sent) return;
-    final enabled = await requestNotificationPermission();
-    if (!context.mounted) return;
-    showToast(
-      context,
-      type: enabled ? ToastType.success : ToastType.error,
-      message: enabled
-          ? 'Notifikasi masuk ±15 detik lagi'
-          : 'Notifikasi mati. Aktifkan di Pengaturan',
-    );
-    // Notifikasinya dari alert asli Kamar 3: push FCM bila aktif, atau
-    // pemantau alert di aplikasi (AlertWatcher).
   }
 
   @override
@@ -129,19 +112,6 @@ class DemoPage extends ConsumerWidget {
             ),
           ),
         ],
-        const SectionTitle('Coba notifikasi'),
-        Text(
-          'Ketuk tombol, lalu keluar dari aplikasi. Kamar 3 akan bocor dan '
-          'notifikasi masuk. Ketuk notifikasinya untuk membuka Detail Kamar 3.',
-          style: AppTextStyles.body.copyWith(color: AppColors.inkMuted),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        AppButton(
-          label: 'Kirim notifikasi bocor',
-          style: AppButtonStyle.danger,
-          expand: true,
-          onPressed: () => _tryNotification(context, ref),
-        ),
       ],
     );
   }

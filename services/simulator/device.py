@@ -6,6 +6,7 @@ penerbitan payload MQTT ke broker, serta pemrosesan perintah kendali.
 import ssl
 import json
 import logging
+import threading
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Callable
@@ -64,6 +65,8 @@ class SimulatedDevice:
         self.accelerated = ticks_to_trigger is not None
         self.rule_config: Dict[str, int] = {}
         self.last_flow: Optional[float] = None
+        # Diset oleh Mode demo supaya loop utama langsung menjalankan tick berikutnya.
+        self.run_now = threading.Event()
 
     def set_scenario(self, name: str, ticks_to_trigger: Optional[int] = None) -> None:
         """Mengganti skenario aktif pada simulator."""
@@ -111,6 +114,7 @@ class SimulatedDevice:
         logger.info(f"Skenario demo aktif: {name}")
         self.last_alert = None
         logger.info(f"Skenario simulator diatur ke: '{name}'")
+        self.run_now.set()
 
     def step(self) -> Optional[Dict[str, Any]]:
         """

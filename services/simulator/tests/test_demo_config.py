@@ -20,6 +20,30 @@ class TestDemoConfig(unittest.TestCase):
         self.assertEqual(device.last_alert["rule"], "STABLE")
         self.assertEqual(device.state.valve_state, "CLOSED")
 
+    def test_every_leak_rule_fires_once_on_its_own_rule(self):
+        """Tiap pilihan bocor memicu aturannya sendiri, sekali saja, langsung."""
+        for scenario, rule in [
+            ("LEAK_STABLE", "STABLE"),
+            ("LEAK_CONTINUOUS", "CONTINUOUS"),
+            ("LEAK_QUIET_HOURS", "QUIET_HOURS"),
+        ]:
+            with self.subTest(scenario=scenario):
+                device = _device()
+                sent = []
+                device.publish = lambda t, p: sent.append((t, p))
+                device.apply_demo({"scenario": scenario})
+                for _ in range(5):
+                    device.step()
+                alerts = [p for t, p in sent if t == "alert"]
+                self.assertEqual([a["rule"] for a in alerts], [rule])
+
+    def test_demo_wakes_main_loop_to_run_now(self):
+        """Pilihan Mode demo langsung dijalankan, tanpa menunggu interval telemetri."""
+        device = _device()
+        self.assertFalse(device.run_now.is_set())
+        device.apply_demo({"scenario": "LEAK_CONTINUOUS"})
+        self.assertTrue(device.run_now.is_set())
+
     def test_demo_ignores_unknown_scenario(self):
         device = _device()
         device.apply_demo({"scenario": "ASAL"})
